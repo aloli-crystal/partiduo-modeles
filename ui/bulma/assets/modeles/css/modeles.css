@@ -8,6 +8,9 @@
 .pd-mod-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; margin-block-end: 1rem; }
 .pd-mod-grid > .pd-panel { margin-block-end: 0; }
 
+/* Tableau positionné : ses libellés masqués (is-sr-only, en position
+   absolue) restent dans le conteneur qui défile et n'élargissent pas la page. */
+.pd-mod-table { position: relative; }
 .pd-mod-table td, .pd-mod-table th { vertical-align: middle; }
 .pd-mod-table .has-text-end, .has-text-end { text-align: end; }
 .pd-mod-row-actions { flex-wrap: wrap; gap: .35rem; margin-block-end: 0; }
@@ -25,8 +28,8 @@
 .pd-mod-warnings .pd-icon { flex: none; inline-size: 1rem; block-size: 1rem; color: var(--pd-warn); }
 
 .pd-mod-starters th[scope="row"] { white-space: nowrap; color: var(--pd-ink); font-size: .85rem; text-transform: none; letter-spacing: 0; }
-.pd-mod-links { display: flex; flex-wrap: wrap; gap: .35rem; min-inline-size: 11rem; }
-.pd-mod-links .button { margin: 0; }
+.pd-mod-links { display: grid; grid-template-columns: repeat(2, max-content); gap: .35rem; }
+.pd-mod-links .button { margin: 0; justify-content: flex-start; }
 
 .pd-mod-converters { display: grid; gap: .75rem; }
 .pd-mod-converters li { display: flex; gap: .5rem; align-items: flex-start; overflow-wrap: anywhere; }

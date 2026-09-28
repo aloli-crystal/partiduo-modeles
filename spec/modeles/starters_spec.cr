@@ -22,6 +22,19 @@ describe "Modèles de départ (ADR-010 D6)" do
     end
   end
 
+  it "produit des archives ODT et DOCX dont chaque partie XML est bien formée, avant et après la fusion" do
+    Modeles::Starters.list.select { |starter| Modeles::Config.office?(starter.format) }.each do |starter|
+      bytes = Modeles::Starters.file(starter.kind, starter.locale, starter.format)
+      view = Modeles::Sample.document(starter.kind, starter.locale, Time.utc(2026, 9, 15))
+      [bytes, Modeles::Fusion.render(starter.format, bytes, view)].each do |archive|
+        package = Modeles::Office::Package.read(archive)
+        package.names.select { |name| name.ends_with?(".xml") || name.ends_with?(".rels") }.each do |name|
+          Modeles::Office::Document.well_formed!(package.text(name).to_s, name)
+        end
+      end
+    end
+  end
+
   it "rend des libellés dans la langue du modèle" do
     view = Modeles::Sample.document("invoice", "nl", Time.utc(2026, 9, 15))
     text = String.new(Modeles::Fusion.render("markdown", Modeles::Starters.file("invoice", "nl", "markdown"), view))
