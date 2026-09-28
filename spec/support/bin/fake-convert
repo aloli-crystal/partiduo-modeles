@@ -1,0 +1,21 @@
+#!/bin/sh
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Convertisseur de substitution des specs : écrit un petit PDF là où l'outil
+# réel l'écrirait (`--outdir` de soffice, `-o` d'asciidoctor-pdf et de
+# pandoc), à partir du fichier d'entrée (dernier argument ou `-o` absent).
+out=""
+outdir=""
+input=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -o) out="$2"; shift ;;
+    --outdir) outdir="$2"; shift ;;
+    *) input="$1" ;;
+  esac
+  shift
+done
+if [ -z "$out" ]; then
+  base=$(basename "$input")
+  out="$outdir/${base%.*}.pdf"
+fi
+printf '%%PDF-1.4\n%% %s\n%%%%EOF\n' "$(wc -c < "$input" | tr -d ' ')" > "$out"

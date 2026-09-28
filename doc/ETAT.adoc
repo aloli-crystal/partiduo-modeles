@@ -1,0 +1,207 @@
+= partiduo-modeles — état, décisions et blocages
+:toc: left
+:toc-title: Table des matières
+:icons: font
+
+Extension `MODELES` (ADR-010, modèles de factures multiformats). Ce document
+consigne les décisions prises pendant la réalisation (`D-MOD-…`) et les
+blocages qui dépendent d'un autre dépôt (`B-MOD-…`). Aucun autre dépôt n'a
+été modifié.
+
+== État
+
+* ADR-010 D1 à D7 réalisés : moteur de fusion bridé, quatre formats, contrôle
+  au dépôt, aperçu fictif, versions, défaut par type et langue, rendu conservé
+  avec empreintes, brouillon non conservé, conversion PDF facultative,
+  modèles de départ (36), droits `modeles.read` et `modeles.admin`, écrans
+  `ui/bulma/` en français, anglais et néerlandais.
+* Specs : moteur, échappement, ODT et DOCX (vrais fichiers construits dans
+  les specs, champs coupés compris), normalisation, contrôle, rendu,
+  conservation, convertisseurs (outils de substitution), droits, écrans,
+  conventions. Ordre aléatoire. Les conversions réelles sont en attente si
+  l'outil manque (B-MOD-005).
+* Instance de démonstration : `scripts/demo.cr` (README).
+
+== Décisions
+
+=== D-MOD-001 — Moteur : celui de Marten, bridé par une analyse préalable
+
+Le rendu utilise `Marten::Template::Template` avec un
+`Marten::Template::Context` construit directement (sans producteurs de
+contexte : ni requête, ni utilisateur, ni réglages). Avant tout rendu,
+`Fusion::Analyzer` parcourt les jetons du lexer de Marten : balises admises
+(`for`, `if`, `elsif`, `else`, `unless`, fermetures, `verbatim`), filtres
+admis (`capitalize`, `default`, `downcase`, `upcase`, `join`, `size`,
+`truncate`), chemins du vocabulaire, variables de boucle et `loop`. Un
+gabarit refusé n'est jamais rendu (`TemplateRejected`), même s'il a été
+enregistré avant un changement des règles.
+
+=== D-MOD-002 — Échappement par format
+
+* ODT, DOCX : échappement HTML de Marten à l'impression (`&`, `<`, `>`, `"`,
+  `'` : valides en XML) ; retours à la ligne et tabulations portés par des
+  marques de la zone d'usage privé (U+E000, U+E001) remplacées après la
+  fusion par `<text:line-break/>`, `<text:tab/>`, `<w:br/>`, `<w:tab/>` ;
+  caractères interdits en XML retirés ; chaque partie produite est relue par
+  libxml2 (XML bien formé, sinon échec du rendu).
+* AsciiDoc : caractères actifs en références numériques (`&#42;`), débuts de
+  ligne actifs neutralisés, retour à la ligne forcé (` +`). Les références
+  numériques résistent aux filtres (`upcase`).
+* Markdown : barre oblique inverse (CommonMark) ; retour à la ligne forcé
+  (`\`), sauf dans les valeurs des listes `lignes` et `tva` (cellules de
+  tableau) où il devient une espace.
+
+=== D-MOD-003 — Valeur vide = `nil`
+
+Une valeur vide du contexte est `nil` : fausse dans un `{% if %}` (Marten
+tient une chaîne vide pour vraie) et remplacée par le filtre `default`.
+
+=== D-MOD-004 — Fichiers écrits et lus par l'acteur système
+
+Les fichiers de l'extension (modèles, rendus, PDF) lui appartiennent :
+`Modeles::Api` contrôle `modeles.read` / `modeles.admin` (et la Facturation
+contrôle `invoicing.invoice.read` à la lecture du document), puis les
+fichiers sont écrits et lus par `Actor.system`. Rendre un document n'exige
+donc pas `core.attachment.write` (contrairement à DOCUMENT, D-DOC-004) :
+ADR-010 D7 ne demande que `modeles.read`.
+
+=== D-MOD-005 — Stockage mixte
+
+PDF, AsciiDoc et Markdown sont des pièces jointes du socle (texte sous le type
+admis `text/plain`, le type réel est gardé dans `modeles_stored_file`) ; ODT
+et DOCX, que le socle n'admet pas, sont écrits dans le stockage de l'instance
+sous `modeles/AAAA/MM/<uuid>.<ext>` avec la même garantie (empreinte SHA-256
+vérifiée à chaque lecture, fichier effacé si la transaction est annulée).
+Voir B-MOD-001.
+
+=== D-MOD-006 — Présentation alignée sur le PDF légal
+
+Montants, quantités, taux et dates suivent les conventions du PDF légal de la
+Facturation (fr `1 234,56` `15/09/2026`, en `1,234.56` `2026-09-15`, nl
+`1.234,56` `15-09-2026`) ; les montants sont imprimés sans symbole, la devise
+est `facture.devise`. Les mentions sont traduites dans la langue du document,
+leurs paramètres (dates ISO, montants) présentés de même.
+
+=== D-MOD-007 — Dépôt, activation, version en service
+
+Un dépôt crée une version, jamais en service d'emblée : l'administrateur voit
+l'aperçu puis active (la dernière version par défaut, ou une version choisie,
+ce qui permet un retour arrière). `active_version` porte le numéro en
+service ; un rendu enregistre `version_id` et `version_number`. Une nouvelle
+version garde le format du modèle. Retirer un modèle lui ôte sa marque de
+défaut ; l'activer à nouveau le remet en service.
+
+=== D-MOD-008 — Types de document
+
+Modèles de type facture, devis, avoir (ADR-010 D4). La facture d'acompte se
+rend avec les modèles de facture (`facture.type` = « Facture d'acompte ») ;
+commandes et bons de livraison ne se rendent pas.
+
+=== D-MOD-009 — Rendus sans valeur
+
+Brouillon : paragraphe « Brouillon — sans valeur » en tête du document (après
+l'en-tête AsciiDoc), numéro remplacé par la même mention,
+`facture.brouillon` vrai ; fichier renvoyé tout de suite, rien n'est
+conservé. Aperçu d'un modèle : document fictif complet (titre, remise, deux
+taux, mentions légales réelles du cœur) marqué « Exemple — sans valeur ».
+Les mentions suivent la langue du document (ou du modèle pour l'aperçu).
+
+=== D-MOD-010 — Normalisation ODT et DOCX
+
+Dans chaque paragraphe (`w:p`, `text:p`, `text:h`), une balise de fusion
+coupée en plusieurs fragments est réunie dans le premier (sa mise en forme
+est gardée) ; les fragments suivants perdent la partie reprise (`<text:s/>`
+compris). Les blocs `for`, `if`, `unless` ouverts dans une ligne de tableau
+et fermés dans une autre cellule ou une ligne suivante sont sortis autour des
+lignes (répétition, lignes conditionnelles) ; un `if` avec `else` ne l'est
+pas. Un paragraphe du corps fait seulement de balises de bloc est remplacé par
+ces balises (sauf celui qui porte les propriétés de section d'un DOCX). Une
+boucle de ligne qui ne se ferme pas dans une ligne est refusée au dépôt.
+
+=== D-MOD-011 — Convertisseurs
+
+Déclarés par l'environnement de l'instance (`PARTIDUO_MODELES_SOFFICE`,
+`…_ASCIIDOCTOR_PDF`, `…_PANDOC`, `…_PANDOC_ENGINE`,
+`…_CONVERT_TIMEOUT`), `auto` pour le `PATH`. Lancement sans shell
+(`Process.new` et tableau d'arguments), répertoire temporaire propre
+(`HOME`, `TMPDIR`, profil LibreOffice), délai puis `SIGKILL`, modes sûrs des
+outils (`pandoc --sandbox`, `asciidoctor-pdf -S secure -a allow-uri-read!`).
+Un échec de conversion n'empêche pas la conservation du fichier au format du
+modèle ; la clé de l'échec est enregistrée sur le rendu et montrée à l'écran.
+
+=== D-MOD-012 — Mentions obligatoires
+
+Exigences contrôlées (`Fusion::Requirements`) : numéro, date, nom et adresse
+du vendeur et du client, boucle sur les lignes avec désignation, quantité,
+prix unitaire et montant hors taxe, taux et montant de TVA, totaux hors taxe
+et TTC, mentions légales ; facture : échéance (couverte aussi par les
+mentions) ; avoir : facture d'origine (idem). Un champ lu seulement dans une
+condition ne compte pas comme imprimé.
+
+=== D-MOD-013 — Coordonnées bancaires figées
+
+`reglement.iban` et `reglement.bic` viennent de la mention `payment.bank`
+calculée par le cœur à l'émission, pas des paramètres courants : un rendu
+tardif imprime les coordonnées de la facture.
+
+=== D-MOD-014 — Modèles de départ produits par le code
+
+`Modeles::Starters` produit les 36 modèles (libellés `modeles.starters.*`) ;
+`scripts/starters.cr` les écrit dans `starters/`, archives ODT et DOCX
+identiques d'une génération à l'autre (date fixe) ; une spec vérifie que le
+dossier est à jour et que chaque modèle passe le contrôle de son type.
+
+=== D-MOD-015 — « Rendre avec un modèle »
+
+Écran de l'extension `/ext/MODELES/documents/<id>` (lien vers la fiche du
+document de la Facturation), atteint depuis la liste des devis, factures et
+avoirs de l'extension (voir B-MOD-002). Un modèle d'une autre langue peut être
+choisi ; montants et dates restent dans la langue du document.
+
+== Blocages
+
+=== B-MOD-001 — Le socle n'admet pas ODT ni DOCX en pièce jointe
+
+`Partiduo::Core::Attachments::TYPES` n'admet ni
+`application/vnd.oasis.opendocument.text` ni
+`application/vnd.openxmlformats-officedocument.wordprocessingml.document`
+(et le contrôle de signature d'un type inconnu refuserait l'octet nul d'une
+archive ZIP). *Contournement* : stockage de l'instance géré par l'extension
+(D-MOD-005). *Demande au cœur* : admettre ces deux types (signature
+`PK\x03\x04`, et `mimetype` pour ODT), et `text/markdown`, `text/asciidoc` ;
+l'extension passera alors tous ses fichiers par le socle.
+
+=== B-MOD-002 — Pas d'action d'extension sur la fiche d'un document
+
+La fiche d'un document de la Facturation (`partiduo-ui-bulma`,
+`DocumentHandler#actions`) n'offre pas de point d'extension pour ajouter une
+action (« Rendre avec un modèle ») ni afficher les rendus conservés ; le
+contrat de la Facturation n'en déclare pas non plus. *Contournement* : écran
+de l'extension par document (D-MOD-015), liste des documents dans
+l'extension, lien retour vers la fiche. *Demande* : un registre
+`PartiduoUi::Extensions.document_action(code, label, route, permission)` lu
+par la fiche d'un document.
+
+=== B-MOD-003 — Isolation réseau des convertisseurs
+
+L'extension ne peut pas couper le réseau d'un processus de façon portable
+(macOS, Linux sans privilèges). Les outils sont lancés dans leurs modes sûrs
+(D-MOD-011) ; l'isolation réseau revient au déploiement (unité systemd
+`PrivateNetwork=yes` du service de conversion, ou `unshare -n`), à prévoir
+dans `partiduo-provision`.
+
+=== B-MOD-004 — Rendus invisibles depuis la Facturation
+
+Les rendus sont rattachés au document par la table de l'extension
+(`modeles_rendition.document_id`) : la Facturation n'a pas de liste de
+« pièces jointes d'un document » où les montrer. Même demande que B-MOD-002.
+
+=== B-MOD-005 — Conversions réelles non vérifiées sur ce poste
+
+`pandoc` est présent sans moteur PDF (spec en attente), `asciidoctor-pdf`
+est absent (en attente), `soffice` est présent mais ne rend pas la main dans
+le bac à sable de l'agent (spec en attente après 20 s). La chaîne de
+conversion (arguments, délai, échec, conservation) est couverte par des
+convertisseurs de substitution ; la CI n'installe pas les outils (ADR-010 D5).
+À vérifier sur un poste avec LibreOffice, `asciidoctor-pdf` et un moteur PDF
+pour `pandoc`.

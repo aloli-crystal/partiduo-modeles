@@ -1,0 +1,20 @@
+{# SPDX-License-Identifier: AGPL-3.0-or-later. Documents de la Facturation à rendre avec un modèle (ADR-010 D4) : devis, factures, factures d'acompte et avoirs, cherchés par numéro. #}{% extend "ui/base.html" %}
+{% block title %}{{ title }}{% endblock title %}
+{% block scripts %}<link rel="stylesheet" href="{% asset 'modeles/css/modeles.css' %}">{% endblock scripts %}
+{% block crumbs %}{% include "ui/_crumbs.html" %}{% endblock crumbs %}
+{% block heading %}{{ title }} <span class="pd-ext">MODELES</span>{% endblock heading %}
+{% block content %}
+<section class="pd-panel" aria-labelledby="pd-mod-docs-title">
+  <header><h2 id="pd-mod-docs-title">{% translate "modeles_ui.documents.list" %}</h2>
+    <form method="get" action="{% url 'modeles:documents' %}" class="pd-mod-search" role="search">
+      <label class="is-sr-only" for="pd-mod-q">{% translate "modeles_ui.documents.search" %}</label>
+      <input class="input" type="search" id="pd-mod-q" name="q" value="{{ search }}" placeholder="{% translate 'modeles_ui.documents.search' %}">
+      <button class="button pd-touch" type="submit">{% include "ui/_icon.html" with name="search" %}<span class="is-sr-only">{% translate "modeles_ui.documents.search" %}</span></button>
+    </form></header>
+  {% if documents %}<div class="pd-scroll"><table class="table is-fullwidth is-hoverable pd-mod-table" data-modeles-documents>
+    <caption class="is-sr-only">{% translate "modeles_ui.documents.list" %}</caption>
+    <thead><tr><th scope="col">{% translate "modeles_ui.documents.number" %}</th><th scope="col">{% translate "modeles_ui.fields.kind" %}</th><th scope="col">{% translate "modeles_ui.documents.customer" %}</th><th scope="col">{% translate "modeles_ui.documents.date" %}</th><th scope="col" class="has-text-end">{% translate "modeles_ui.documents.total" %}</th><th scope="col">{% translate "modeles_ui.fields.status" %}</th></tr></thead>
+    <tbody>{% for item in documents %}<tr data-modeles-document="{{ item.id }}"><td><a href="{{ item.url }}">{{ item.number }}</a></td><td>{{ item.kind }}</td><td>{{ item.customer }}</td><td>{{ item.date }}</td><td class="pd-mono has-text-end">{{ item.total }} {{ item.currency }}</td><td>{{ item.status }}</td></tr>{% endfor %}</tbody>
+  </table></div>{% else %}<div class="pd-body"><p class="pd-muted">{% translate "modeles_ui.documents.empty" %}</p></div>{% endif %}
+</section>
+{% endblock content %}

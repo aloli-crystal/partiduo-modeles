@@ -1,0 +1,38 @@
+{# SPDX-License-Identifier: AGPL-3.0-or-later. « Rendre avec un modèle » (ADR-010 D4) pour un document de la Facturation : choix du modèle (le défaut de son type et de sa langue d'abord), PDF si le convertisseur de son format est déclaré, rendus conservés avec leurs empreintes. Un brouillon est rendu en aperçu « Brouillon — sans valeur », non conservé. #}{% extend "ui/base.html" %}
+{% block title %}{{ title }}{% endblock title %}
+{% block scripts %}<link rel="stylesheet" href="{% asset 'modeles/css/modeles.css' %}">{% endblock scripts %}
+{% block crumbs %}{% include "ui/_crumbs.html" %}{% endblock crumbs %}
+{% block heading %}{{ title }} <span class="pd-ext">MODELES</span>{% endblock heading %}
+{% block actions %}<a class="button pd-touch" href="{{ document_url }}">{% include "ui/_icon.html" with name="file-text" %}<span>{% translate "modeles_ui.documents.open" %}</span></a>{% endblock actions %}
+{% block content %}
+<div class="pd-mod-grid">
+<section class="pd-panel" aria-labelledby="pd-mod-doc-title">
+  <header><h2 id="pd-mod-doc-title">{% translate "modeles_ui.documents.summary" %}</h2></header>
+  <div class="pd-body"><dl class="pd-dl">
+    <dt>{% translate "modeles_ui.documents.number" %}</dt><dd>{{ document.number }}</dd>
+    <dt>{% translate "modeles_ui.documents.customer" %}</dt><dd>{{ document.customer }}</dd>
+    <dt>{% translate "modeles_ui.documents.date" %}</dt><dd>{{ document.date }}</dd>
+    <dt>{% translate "modeles_ui.documents.total" %}</dt><dd class="pd-mono">{{ document.total }} {{ document.currency }}</dd>
+    <dt>{% translate "modeles_ui.fields.locale" %}</dt><dd>{{ document.locale }}</dd>
+    <dt>{% translate "modeles_ui.fields.status" %}</dt><dd>{{ document.status }}</dd>
+  </dl><p class="help mt-3">{% translate "modeles_ui.documents.legal_note" %}</p></div>
+</section>
+<section class="pd-panel" aria-labelledby="pd-mod-render-title" data-modeles-render>
+  <header><h2 id="pd-mod-render-title">{% translate "modeles_ui.documents.render" %}</h2></header>
+  <div class="pd-body">{% if not renderable %}<p class="pd-muted">{% translate "modeles_ui.documents.not_renderable" %}</p>{% elsif templates %}
+    {% if draft %}<p class="notification is-warning is-light" role="status" data-modeles-draft>{% translate "modeles_ui.documents.draft_help" %}</p>{% endif %}
+    <form method="post" action="{{ render_url }}">
+      {% csrf_input %}
+      <div class="field"><label class="label" for="pd-mod-template">{% translate "modeles_ui.documents.template" %}</label>
+        <div class="select is-fullwidth"><select class="pd-touch" id="pd-mod-template" name="template_id">{% for option in templates %}<option value="{{ option.id }}"{% if option.selected %} selected{% endif %}>{{ option.label }}{% if option.default %} ★{% endif %}</option>{% endfor %}</select></div></div>
+      <div class="field"><label class="checkbox pd-touch pd-mod-check"><input type="checkbox" name="pdf" value="1" checked> {% translate "modeles_ui.documents.pdf" %}</label>
+        {% if no_pdf_format %}<p class="help" data-modeles-no-pdf>{% translate "modeles_ui.documents.no_pdf" %} {% for format in no_pdf_format %}{{ format }}{% if not loop.last? %}, {% endif %}{% endfor %}.</p>{% endif %}</div>
+      <button class="button is-primary pd-touch" type="submit" data-modeles-render-submit>{% include "ui/_icon.html" with name="file-text" %}<span>{% if draft %}{% translate "modeles_ui.documents.render_draft" %}{% else %}{% translate "modeles_ui.documents.render_submit" %}{% endif %}</span></button>
+    </form>{% else %}<p class="pd-muted" data-modeles-no-template>{% translate "modeles_ui.documents.no_template" %} <a href="{{ index_url }}">{% translate "modeles_ui.documents.manage" %}</a></p>{% endif %}</div>
+</section>
+</div>
+<section class="pd-panel" aria-labelledby="pd-mod-renditions-title">
+  <header><h2 id="pd-mod-renditions-title">{% translate "modeles_ui.renditions.of_document" %}</h2></header>
+  {% if renditions %}{% include "modeles/_renditions.html" %}{% else %}<div class="pd-body"><p class="pd-muted">{% translate "modeles_ui.renditions.empty" %}</p></div>{% endif %}
+</section>
+{% endblock content %}

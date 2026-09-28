@@ -1,0 +1,37 @@
+name: partiduo-modeles
+version: 0.1.0
+
+description: |
+  Extension MODELES de Partiduo (ADR-010) : modèles de factures, devis et
+  avoirs déposés en AsciiDoc, Markdown, OpenDocument (ODT) ou Microsoft
+  Word (DOCX), remplis avec un document émis de la Facturation par un
+  langage de fusion unique (syntaxe des gabarits Marten, bridée), rendus
+  dans le même format et, si le serveur a le convertisseur, en PDF ;
+  chaque rendu est conservé avec son empreinte et la version du modèle.
+
+authors:
+  - Philippe Nénert <it+claude.ai@aloli.fr>
+
+crystal: ">= 1.19.1"
+
+license: AGPL-3.0-or-later
+
+targets:
+  partiduo-modeles-manage:
+    main: manage.cr
+
+dependencies:
+  # Le cœur : registre, pièces jointes et contrat Partiduo::Api (Facturation).
+  partiduo:
+    path: ../partiduo-app
+  marten:
+    path: ../../marten
+
+development_dependencies:
+  # L'interface qui monte ui/bulma/ : nécessaire aux specs, à manage.cr et à
+  # l'instance de démonstration ; la distribution l'apporte elle-même.
+  partiduo-ui-bulma:
+    path: ../partiduo-ui-bulma
+  ameba:
+    github: crystal-ameba/ameba
+    version: "~> 1.6"

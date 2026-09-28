@@ -1,0 +1,4 @@
+#!/bin/sh
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Convertisseur de substitution qui ne rend jamais la main (délai des specs).
+exec sleep 30

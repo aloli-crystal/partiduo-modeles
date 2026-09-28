@@ -1,0 +1,58 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Modèles de documents (extension MODELES, ADR-010). Conventions de
+   partiduo-ui-bulma : propriétés logiques seulement (écriture de droite à
+   gauche comprise), cibles de 44 px (`pd-touch`), focus visible, jetons de
+   couleur de theme.css (thème sombre compris, aucune couleur en dur).
+   Téléphone d'abord : une colonne ; la grille s'ouvre sur tablette. */
+
+.pd-mod-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; margin-block-end: 1rem; }
+.pd-mod-grid > .pd-panel { margin-block-end: 0; }
+
+.pd-mod-table td, .pd-mod-table th { vertical-align: middle; }
+.pd-mod-table .has-text-end, .has-text-end { text-align: end; }
+.pd-mod-row-actions { flex-wrap: wrap; gap: .35rem; margin-block-end: 0; }
+.pd-mod-row-actions form { display: inline-flex; }
+.pd-mod-new { background: var(--pd-ok-bg); }
+
+.pd-mod-fields { display: grid; grid-template-columns: minmax(0, 1fr); gap: .75rem; margin-block-end: .5rem; }
+.pd-mod-fields .field { margin: 0; }
+.pd-mod-fields .input, .pd-mod-fields select { min-block-size: 44px; font-size: 1rem; } /* 16 px : pas de zoom sur iPhone */
+
+.pd-mod-report { margin-block-end: 1rem; }
+.pd-mod-issues { list-style: disc; padding-inline-start: 1.25rem; margin-block-start: .35rem; }
+.pd-mod-warnings { margin-block-start: .35rem; }
+.pd-mod-warnings li { display: flex; gap: .35rem; align-items: flex-start; color: var(--pd-muted); }
+.pd-mod-warnings .pd-icon { flex: none; inline-size: 1rem; block-size: 1rem; color: var(--pd-warn); }
+
+.pd-mod-starters th[scope="row"] { white-space: nowrap; color: var(--pd-ink); font-size: .85rem; text-transform: none; letter-spacing: 0; }
+.pd-mod-links { display: flex; flex-wrap: wrap; gap: .35rem; min-inline-size: 11rem; }
+.pd-mod-links .button { margin: 0; }
+
+.pd-mod-converters { display: grid; gap: .75rem; }
+.pd-mod-converters li { display: flex; gap: .5rem; align-items: flex-start; overflow-wrap: anywhere; }
+.pd-mod-converters [data-modeles-converter="available"] > .pd-icon { color: var(--pd-ok); }
+.pd-mod-converters [data-modeles-converter="missing"] > .pd-icon { color: var(--pd-warn); }
+
+.pd-mod-format { font-size: .8rem; padding-inline: .4rem; border-radius: var(--bulma-radius-small); background: var(--pd-row-alt); color: var(--pd-ink); }
+
+.pd-mod-vocabulary { border-block-end: 1px solid var(--pd-rule); padding-block: .25rem; }
+.pd-mod-vocabulary summary { cursor: pointer; padding-block: .6rem; }
+.pd-mod-dl { display: grid; grid-template-columns: minmax(0, 1fr); gap: .15rem .75rem; font-size: .85rem; margin-block: .5rem; }
+.pd-mod-dl dt code { overflow-wrap: anywhere; }
+.pd-mod-dl dd { margin: 0 0 .35rem; color: var(--pd-muted); }
+
+.pd-mod-search { display: flex; gap: .35rem; align-items: center; }
+.pd-mod-search .input { min-inline-size: 0; min-block-size: 44px; }
+.pd-mod-check { display: inline-flex; align-items: center; gap: .5rem; }
+
+/* Focus visible sur les éléments propres à l'écran. */
+.pd-mod-vocabulary summary:focus-visible, .pd-mod-starters a:focus-visible, .pd-mod-check input:focus-visible {
+  outline: 2px solid var(--pd-focus); outline-offset: 2px; }
+
+@media (min-width: 768px) {
+  .pd-mod-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .pd-mod-fields { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr); }
+  .pd-mod-wide { grid-column: 1 / -1; }
+  .pd-mod-dl { grid-template-columns: minmax(12rem, auto) minmax(0, 1fr); }
+  .pd-mod-dl dd { margin: 0; }
+}

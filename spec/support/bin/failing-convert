@@ -1,0 +1,5 @@
+#!/bin/sh
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Convertisseur de substitution qui échoue avec un message.
+echo "conversion impossible : police absente" >&2
+exit 3

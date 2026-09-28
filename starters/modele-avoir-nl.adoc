@@ -1,0 +1,55 @@
+= {{ facture.type }} {{ facture.numero }}
+:nofooter:
+:lang: nl
+
+[cols="1,1",frame=none,grid=none]
+|===
+a|*{{ vendeur.nom }}* +
+{{ vendeur.adresse }}{% if vendeur.courriel %} +
+{{ vendeur.courriel }}{% endif %}
+a|*Klant* +
+{{ client.nom }} +
+{{ client.adresse }}
+|===
+
+[cols="1,2",frame=none,grid=none,width=70%]
+|===
+|Datum |{{ facture.date }}
+{% if facture.facture_origine %}|Oorspronkelijke factuur |{{ facture.facture_origine }}
+{% endif %}{% if facture.facture_origine_date %}|Van |{{ facture.facture_origine_date }}
+{% endif %}{% if facture.reference_acheteur %}|Uw referentie |{{ facture.reference_acheteur }}
+{% endif %}{% if facture.reference_commande %}|Uw bestelling |{{ facture.reference_commande }}
+{% endif %}|===
+
+[cols="6,1,1,2,1,2",options="header"]
+|===
+|Omschrijving >|Aantal |Eenheid >|Eenheidsprijs >|Btw >|Bedrag excl. btw
+{% for ligne in lignes %}{% if ligne.chiffree %}|{{ ligne.designation }}{% if ligne.remise %} (korting {{ ligne.remise }}){% endif %} >|{{ ligne.quantite }} |{{ ligne.unite }} >|{{ ligne.prix_unitaire }} >|{{ ligne.taux_tva }} >|{{ ligne.montant_ht }}
+{% elsif ligne.sous_total %}5+|_{{ ligne.designation|default:"Subtotaal" }}_ >|_{{ ligne.montant_ht }}_
+{% elsif ligne.note %}6+|_{{ ligne.designation }}_
+{% else %}6+|*{{ ligne.designation }}*
+{% endif %}{% endfor %}|===
+
+[cols="1,2,2",options="header",width=60%]
+|===
+>|Btw-tarief >|Maatstaf van heffing >|Btw-bedrag
+{% for groupe in tva %}>|{{ groupe.taux }} >|{{ groupe.base }} >|{{ groupe.montant }}
+{% endfor %}|===
+
+[cols="2,1",frame=none,grid=rows,width=50%]
+|===
+|Totaal excl. btw >|{{ totaux.ht }} {{ facture.devise }}
+|Totaal btw >|{{ totaux.tva }} {{ facture.devise }}
+|*Totaal incl. btw* >|*{{ totaux.ttc }} {{ facture.devise }}*
+{% if totaux.acompte %}|Afgetrokken voorschotten >|{{ totaux.acompte }} {{ facture.devise }}
+|*Te betalen* >|*{{ totaux.net_a_payer }} {{ facture.devise }}*
+{% endif %}|===
+
+{% if facture.conditions_paiement %}*Betalingsvoorwaarden:* {{ facture.conditions_paiement }}
+
+{% endif %}{% if facture.origine %}{{ facture.origine }}
+
+{% endif %}{% if facture.notes %}{{ facture.notes }}
+
+{% endif %}.Wettelijke vermeldingen
+{{ mentions }}

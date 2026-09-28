@@ -1,0 +1,57 @@
+= {{ facture.type }} {{ facture.numero }}
+:nofooter:
+:lang: fr
+
+[cols="1,1",frame=none,grid=none]
+|===
+a|*{{ vendeur.nom }}* +
+{{ vendeur.adresse }}{% if vendeur.courriel %} +
+{{ vendeur.courriel }}{% endif %}
+a|*Client* +
+{{ client.nom }} +
+{{ client.adresse }}
+|===
+
+[cols="1,2",frame=none,grid=none,width=70%]
+|===
+|Date |{{ facture.date }}
+{% if facture.date_livraison %}|Date de livraison |{{ facture.date_livraison }}
+{% endif %}{% if facture.echeance %}|Échéance |{{ facture.echeance }}
+{% endif %}{% if facture.reference_acheteur %}|Votre référence |{{ facture.reference_acheteur }}
+{% endif %}{% if facture.reference_commande %}|Votre commande |{{ facture.reference_commande }}
+{% endif %}|===
+
+[cols="6,1,1,2,1,2",options="header"]
+|===
+|Désignation >|Qté |Unité >|PU HT >|TVA >|Total HT
+{% for ligne in lignes %}{% if ligne.chiffree %}|{{ ligne.designation }}{% if ligne.remise %} (remise {{ ligne.remise }}){% endif %} >|{{ ligne.quantite }} |{{ ligne.unite }} >|{{ ligne.prix_unitaire }} >|{{ ligne.taux_tva }} >|{{ ligne.montant_ht }}
+{% elsif ligne.sous_total %}5+|_{{ ligne.designation|default:"Sous-total" }}_ >|_{{ ligne.montant_ht }}_
+{% elsif ligne.note %}6+|_{{ ligne.designation }}_
+{% else %}6+|*{{ ligne.designation }}*
+{% endif %}{% endfor %}|===
+
+[cols="1,2,2",options="header",width=60%]
+|===
+>|Taux de TVA >|Base HT >|Montant de TVA
+{% for groupe in tva %}>|{{ groupe.taux }} >|{{ groupe.base }} >|{{ groupe.montant }}
+{% endfor %}|===
+
+[cols="2,1",frame=none,grid=rows,width=50%]
+|===
+|Total HT >|{{ totaux.ht }} {{ facture.devise }}
+|Total TVA >|{{ totaux.tva }} {{ facture.devise }}
+|*Total TTC* >|*{{ totaux.ttc }} {{ facture.devise }}*
+{% if totaux.acompte %}|Acomptes déduits >|{{ totaux.acompte }} {{ facture.devise }}
+|*Net à payer* >|*{{ totaux.net_a_payer }} {{ facture.devise }}*
+{% endif %}|===
+
+{% if facture.conditions_paiement %}*Conditions de paiement :* {{ facture.conditions_paiement }}
+
+{% endif %}{% if reglement.iban %}*Règlement :* IBAN {{ reglement.iban }}{% if reglement.bic %} · BIC {{ reglement.bic }}{% endif %} · référence {{ reglement.reference }}
+
+{% endif %}{% if facture.origine %}{{ facture.origine }}
+
+{% endif %}{% if facture.notes %}{{ facture.notes }}
+
+{% endif %}.Mentions légales
+{{ mentions }}

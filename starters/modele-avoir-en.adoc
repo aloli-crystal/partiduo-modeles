@@ -1,0 +1,55 @@
+= {{ facture.type }} {{ facture.numero }}
+:nofooter:
+:lang: en
+
+[cols="1,1",frame=none,grid=none]
+|===
+a|*{{ vendeur.nom }}* +
+{{ vendeur.adresse }}{% if vendeur.courriel %} +
+{{ vendeur.courriel }}{% endif %}
+a|*Customer* +
+{{ client.nom }} +
+{{ client.adresse }}
+|===
+
+[cols="1,2",frame=none,grid=none,width=70%]
+|===
+|Date |{{ facture.date }}
+{% if facture.facture_origine %}|Original invoice |{{ facture.facture_origine }}
+{% endif %}{% if facture.facture_origine_date %}|Dated |{{ facture.facture_origine_date }}
+{% endif %}{% if facture.reference_acheteur %}|Your reference |{{ facture.reference_acheteur }}
+{% endif %}{% if facture.reference_commande %}|Your order |{{ facture.reference_commande }}
+{% endif %}|===
+
+[cols="6,1,1,2,1,2",options="header"]
+|===
+|Description >|Qty |Unit >|Unit price >|VAT >|Amount
+{% for ligne in lignes %}{% if ligne.chiffree %}|{{ ligne.designation }}{% if ligne.remise %} (discount {{ ligne.remise }}){% endif %} >|{{ ligne.quantite }} |{{ ligne.unite }} >|{{ ligne.prix_unitaire }} >|{{ ligne.taux_tva }} >|{{ ligne.montant_ht }}
+{% elsif ligne.sous_total %}5+|_{{ ligne.designation|default:"Subtotal" }}_ >|_{{ ligne.montant_ht }}_
+{% elsif ligne.note %}6+|_{{ ligne.designation }}_
+{% else %}6+|*{{ ligne.designation }}*
+{% endif %}{% endfor %}|===
+
+[cols="1,2,2",options="header",width=60%]
+|===
+>|VAT rate >|Taxable amount >|VAT amount
+{% for groupe in tva %}>|{{ groupe.taux }} >|{{ groupe.base }} >|{{ groupe.montant }}
+{% endfor %}|===
+
+[cols="2,1",frame=none,grid=rows,width=50%]
+|===
+|Total excl. VAT >|{{ totaux.ht }} {{ facture.devise }}
+|Total VAT >|{{ totaux.tva }} {{ facture.devise }}
+|*Total incl. VAT* >|*{{ totaux.ttc }} {{ facture.devise }}*
+{% if totaux.acompte %}|Deposits deducted >|{{ totaux.acompte }} {{ facture.devise }}
+|*Amount due* >|*{{ totaux.net_a_payer }} {{ facture.devise }}*
+{% endif %}|===
+
+{% if facture.conditions_paiement %}*Payment terms:* {{ facture.conditions_paiement }}
+
+{% endif %}{% if facture.origine %}{{ facture.origine }}
+
+{% endif %}{% if facture.notes %}{{ facture.notes }}
+
+{% endif %}.Legal notices
+{{ mentions }}

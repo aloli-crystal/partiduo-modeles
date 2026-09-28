@@ -1,0 +1,55 @@
+{# SPDX-License-Identifier: AGPL-3.0-or-later. Fiche d'un modèle (ADR-010 D3) : versions (fichier, empreinte, remarques du contrôle), aperçu avec un document fictif au format du modèle et en PDF, activation d'une version, désignation par défaut pour son type et sa langue, retrait, dépôt d'une nouvelle version avec son rapport de contrôle. #}{% extend "ui/base.html" %}
+{% block title %}{{ title }}{% endblock title %}
+{% block scripts %}<link rel="stylesheet" href="{% asset 'modeles/css/modeles.css' %}">{% endblock scripts %}
+{% block crumbs %}{% include "ui/_crumbs.html" %}{% endblock crumbs %}
+{% block heading %}{{ title }} <span class="pd-ext">MODELES</span> <span class="tag {{ template.status_class }} is-light" data-modeles-status="{{ template.status }}">{{ template.status_label }}</span>{% if is_default %} <span class="tag is-info is-light" data-modeles-default>{% translate "modeles_ui.template.default" %}</span>{% endif %}{% endblock heading %}
+{% block actions %}{% if default_url %}<form method="post" action="{{ default_url }}">{% csrf_input %}{% if is_default %}<input type="hidden" name="unset" value="1"><button class="button pd-touch" type="submit">{% include "ui/_icon.html" with name="x" %}<span>{% translate "modeles_ui.actions.unset_default" %}</span></button>{% else %}<button class="button pd-touch" type="submit" data-modeles-set-default>{% include "ui/_icon.html" with name="check" %}<span>{% translate "modeles_ui.actions.set_default" %}</span></button>{% endif %}</form>{% endif %}{% if retire_url %}<form method="post" action="{{ retire_url }}">{% csrf_input %}<button class="button is-danger is-light pd-touch" type="submit" data-modeles-retire>{% include "ui/_icon.html" with name="lock" %}<span>{% translate "modeles_ui.actions.retire" %}</span></button></form>{% endif %}{% endblock actions %}
+{% block content %}
+<section class="pd-panel" aria-labelledby="pd-mod-info-title">
+  <header><h2 id="pd-mod-info-title">{% translate "modeles_ui.template.info" %}</h2></header>
+  <div class="pd-body"><dl class="pd-dl">
+    <dt>{% translate "modeles_ui.fields.kind" %}</dt><dd>{{ template.kind }}</dd>
+    <dt>{% translate "modeles_ui.fields.locale" %}</dt><dd>{{ template.locale }}</dd>
+    <dt>{% translate "modeles_ui.fields.format" %}</dt><dd>{{ template.format }}</dd>
+    <dt>{% translate "modeles_ui.template.in_use" %}</dt><dd class="pd-mono" data-modeles-active>{% if template.active %}{{ template.active }}{% else %}—{% endif %}</dd>
+    <dt>{% translate "modeles_ui.template.pdf" %}</dt><dd>{% if pdf %}{% translate "modeles_ui.template.pdf_yes" %}{% else %}<span data-modeles-no-pdf>{% translate "modeles_ui.template.pdf_no" variable: variable %}</span>{% endif %}</dd>
+  </dl>{% if template.pending %}<p class="notification is-warning is-light mt-3" role="status" data-modeles-pending>{% translate "modeles_ui.template.pending_help" %}</p>{% endif %}</div>
+</section>
+
+<section class="pd-panel" aria-labelledby="pd-mod-versions-title">
+  <header><h2 id="pd-mod-versions-title">{% translate "modeles_ui.template.versions" %}</h2></header>
+  <div class="pd-scroll"><table class="table is-fullwidth pd-mod-table" data-modeles-versions>
+    <caption class="is-sr-only">{% translate "modeles_ui.template.versions" %}</caption>
+    <thead><tr><th scope="col">{% translate "modeles_ui.fields.version" %}</th><th scope="col">{% translate "modeles_ui.template.file" %}</th><th scope="col">{% translate "modeles_ui.template.uploaded" %}</th><th scope="col">SHA-256</th><th scope="col"><span class="is-sr-only">{% translate "modeles_ui.template.actions" %}</span></th></tr></thead>
+    <tbody>{% for version in versions %}<tr data-modeles-version="{{ version.number }}">
+      <td class="pd-mono">{{ version.label }}{% if version.active %} <span class="tag is-success is-light">{% translate "modeles_ui.template.in_use_tag" %}</span>{% endif %}</td>
+      <td><a href="{{ version.file_url }}">{{ version.filename }}</a> <span class="is-size-7 pd-muted">{{ version.size }}</span>{% if version.warnings %}<ul class="pd-mod-warnings is-size-7">{% for warning in version.warnings %}<li>{% include "ui/_icon.html" with name="triangle-alert" %} {{ warning.text }}</li>{% endfor %}</ul>{% endif %}</td>
+      <td>{{ version.uploaded }}</td>
+      <td class="pd-mono is-size-7"><abbr title="{{ version.sha256 }}">{{ version.sha_short }}…</abbr></td>
+      <td><div class="buttons pd-mod-row-actions">
+        <a class="button is-small pd-touch" href="{{ version.preview_url }}" data-modeles-preview>{% include "ui/_icon.html" with name="file-text" %}<span>{% translate "modeles_ui.actions.preview" %}</span></a>
+        {% if version.pdf_url %}<a class="button is-small pd-touch" href="{{ version.pdf_url }}" target="_blank" rel="noopener">{% include "ui/_icon.html" with name="printer" %}<span>{% translate "modeles_ui.actions.preview_pdf" %}</span></a>{% endif %}
+        {% if version.activate %}<form method="post" action="{{ activate_url }}">{% csrf_input %}<input type="hidden" name="version" value="{{ version.number }}"><button class="button is-small is-primary pd-touch" type="submit" data-modeles-activate>{% include "ui/_icon.html" with name="check" %}<span>{% translate "modeles_ui.actions.activate" %}</span></button></form>{% endif %}
+      </div></td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+  <p class="help pd-body">{% translate "modeles_ui.template.preview_help" %}</p>
+</section>
+
+{% if upload_url %}<section class="pd-panel" aria-labelledby="pd-mod-new-version-title" data-modeles-upload>
+  <header><h2 id="pd-mod-new-version-title">{% translate "modeles_ui.template.new_version" %}</h2></header>
+  <form class="pd-body" method="post" action="{{ upload_url }}" enctype="multipart/form-data" novalidate>
+    {% csrf_input %}<input type="hidden" name="template_id" value="{{ template.id }}">
+    {% include "ui/_errors.html" with messages=errors.base, id="pd-mod-base-errors" %}
+    {% if report %}<div class="notification is-danger is-light pd-mod-report" role="alert" data-modeles-report>
+      <p><strong>{% translate "modeles_ui.upload.refused" %}</strong></p>
+      <ul class="pd-mod-issues">{% for message in report %}<li>{{ message }}</li>{% endfor %}</ul>
+    </div>{% endif %}
+    <div class="field"><label class="label" for="pd-mod-file">{% translate "modeles_ui.upload.file" %}</label>
+      <input class="input pd-touch" type="file" id="pd-mod-file" name="file" accept="{{ accept }}" required aria-describedby="pd-mod-file-help{% if errors.file %} pd-mod-file-errors{% endif %}"{% if errors.file %} aria-invalid="true"{% endif %}>
+      <p class="help" id="pd-mod-file-help">{% translate "modeles_ui.template.new_version_help" max: max_mb %}</p>
+      {% include "ui/_errors.html" with messages=errors.file, id="pd-mod-file-errors" %}</div>
+    <button class="button is-primary pd-touch" type="submit">{% include "ui/_icon.html" with name="upload" %}<span>{% translate "modeles_ui.upload.submit" %}</span></button>
+  </form>
+</section>{% endif %}
+{% endblock content %}

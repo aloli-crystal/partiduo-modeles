@@ -1,0 +1,400 @@
+= partiduo-modeles — modèles de factures multiformats
+:toc: left
+:toc-title: Table des matières
+:icons: font
+
+*Partiduo* est le portage en Crystal de https://noalyss.eu[NOALYSS], logiciel
+libre de comptabilité créé et maintenu par *Dany De Bontridder*. Partiduo
+n'est pas un projet officiel NOALYSS.
+
+Ce dépôt est l'extension `MODELES` de Partiduo (ADR-010) : l'entreprise
+dépose son propre modèle de facture, de devis ou d'avoir en *AsciiDoc*,
+*Markdown*, *OpenDocument* (ODT) ou *Microsoft Word* (DOCX), avec des champs
+de fusion ; Partiduo le remplit avec un document de la Facturation et rend le
+résultat dans le même format et, quand le serveur a le convertisseur voulu,
+en PDF. Chaque rendu d'un document émis est conservé avec son empreinte
+SHA-256 et la version du modèle.
+
+La spécification est dans `../partiduo-docs/adr/ADR-010-modeles-de-factures.adoc`
+(D1 à D7), avec ADR-003 (contrat d'extension), ADR-004 D9 (factures non
+électroniques, copie PDF), ADR-005 (interface) et ADR-006 (Facturation). Les
+décisions et blocages propres à ce dépôt sont dans link:doc/ETAT.adoc[]
+(`D-MOD-…`, `B-MOD-…`).
+
+IMPORTANT: Le PDF légal Factur-X de la Facturation reste la référence (plateforme
+agréée, copie PDF). Un rendu de modèle est une _présentation_ de la facture,
+pour le papier et le courrier : il ne modifie jamais la facture (ni numéro, ni
+montants, ni empreinte).
+
+== Fonctions
+
+[cols="1,3",options="header"]
+|===
+|Fonction |Dans MODELES
+
+|Dépôt contrôlé (D3)
+|Syntaxe, balises et filtres admis, champs connus, *mentions obligatoires* du
+type de document ; un modèle incomplet est refusé avec la liste de ce qui
+manque. Rapport à l'écran ; remarque si le PDF n'est pas disponible pour ce
+format.
+
+|Aperçu (D3)
+|Rendu avec une facture, un devis ou un avoir *fictif* marqué « Exemple — sans
+valeur », au format du modèle et en PDF ; rien n'est conservé.
+
+|Versions (D3)
+|Chaque dépôt crée une version ; une version n'est en service qu'après son
+activation ; les documents déjà rendus gardent la leur.
+
+|Défaut (D4)
+|Un modèle par défaut par type de document (facture, devis, avoir) et langue.
+
+|Rendu (D4)
+|Depuis un devis, une facture, une facture d'acompte ou un avoir *émis* :
+fichier au format du modèle et PDF, conservés (empreintes SHA-256, version du
+modèle), historique. Un *brouillon* est rendu en aperçu marqué « Brouillon —
+sans valeur », téléchargé aussitôt et non conservé.
+
+|PDF (D5)
+|LibreOffice (ODT, DOCX), `asciidoctor-pdf` (AsciiDoc), `pandoc` (Markdown),
+facultatifs, déclarés par l'instance, lancés sans shell avec un délai.
+
+|Modèles de départ (D6)
+|Facture, devis, avoir × AsciiDoc, Markdown, ODT, DOCX × français, anglais,
+néerlandais, complets et conformes, téléchargeables depuis l'écran (et lisibles
+dans `starters/`).
+
+|Droits (D7)
+|`modeles.read` : rendre, télécharger ; `modeles.admin` : déposer, activer,
+désigner par défaut, retirer. Rendre un document exige aussi la lecture des
+factures (`invoicing.invoice.read`).
+|===
+
+== Installation
+
+L'extension est un shard ; elle dépend du cœur (`partiduo-app`) et de la
+Facturation (`depends_on "INVOICING"`). Une distribution la compose ainsi :
+
+[source,crystal]
+----
+require "partiduo-ui-bulma/partiduo_ui"
+require "partiduo-modeles"
+require "partiduo-modeles/ui/bulma"
+
+Marten.configure do |config|
+  config.installed_apps = config.installed_apps + Modeles::INSTALLED_APPS + Modeles::Ui::INSTALLED_APPS
+end
+----
+
+et ajoute `require "partiduo-modeles/cli"` à sa ligne de commande pour les
+migrations (tables `modeles_template`, `modeles_template_version`,
+`modeles_stored_file`, `modeles_rendition`). L'extension s'active par
+dossier : `PARTIDUO_MODULES=invoicing,modeles` ou l'écran des modules.
+L'interface est montée sous `/ext/MODELES/` ; le menu « Modèles de
+documents » est sous « Facturation ».
+
+== Convertisseurs PDF (facultatifs)
+
+Aucun convertisseur n'est requis : sans lui, seul le fichier au format du
+modèle est produit, et l'écran le dit (dépôt, fiche du modèle, rendu).
+
+[cols="1,2,2",options="header"]
+|===
+|Format |Outil |Variable de l'instance
+
+|ODT, DOCX |LibreOffice sans interface : `soffice --headless --convert-to pdf` |`PARTIDUO_MODELES_SOFFICE`
+|AsciiDoc |`asciidoctor-pdf` (mode `secure`) |`PARTIDUO_MODELES_ASCIIDOCTOR_PDF`
+|Markdown |`pandoc` (`--sandbox`) et un moteur PDF |`PARTIDUO_MODELES_PANDOC`, `PARTIDUO_MODELES_PANDOC_ENGINE` (par exemple `weasyprint`, `typst`, `xelatex`)
+|===
+
+* La valeur d'une variable est le chemin de l'outil, ou `auto` pour le
+  chercher dans le `PATH` ; absente ou vide, le PDF du format est désactivé.
+* `PARTIDUO_MODELES_CONVERT_TIMEOUT` : délai maximal en secondes (60 par
+  défaut) ; au-delà, l'outil est tué et l'échec noté sur le rendu.
+* Chaque conversion est lancée sans shell (tableau d'arguments), dans un
+  répertoire temporaire propre effacé ensuite (`HOME` et `TMPDIR` y pointent,
+  profil LibreOffice compris). L'absence de réseau repose sur les modes sûrs
+  des outils et sur le déploiement (voir B-MOD-003).
+
+Installation sur Debian ou Ubuntu : `apt install libreoffice-writer-nogui
+pandoc` et `gem install asciidoctor-pdf`.
+
+== Écrire un modèle
+
+Le langage de fusion est la syntaxe des gabarits de Marten, *bridée* au seul
+contexte de fusion (ADR-010 D2) :
+
+* champs : `{{ facture.numero }}`, `{{ client.nom|upcase }}`,
+  `{{ facture.notes|default:"—" }}` ;
+* conditions : `{% if totaux.acompte %}…{% elsif … %}…{% else %}…{% endif %}`,
+  `{% unless … %}` ; opérateurs `&&`, `||`, `not`, `==`, `!=`, `<`, `>`, `in` ;
+* boucles : `{% for ligne in lignes %}…{% endfor %}`, avec `loop.index`,
+  `loop.first?`, `loop.last?` ;
+* texte littéral : `{% verbatim %}…{% endverbatim %}`.
+
+Toute autre balise (`include`, `extend`, `url`, `translate`, `assign`…) et les
+filtres `safe`, `escape`, `linebreaks` sont refusés : le modèle ne voit que le
+vocabulaire ci-dessous, jamais les modèles de données ni la requête. Une valeur
+vide est fausse dans une condition et remplacée par `default`.
+
+Les valeurs sont *échappées selon le format* : XML pour ODT et DOCX (retours à
+la ligne rendus par `<text:line-break/>` ou `<w:br/>`), références numériques
+pour les caractères actifs d'AsciiDoc, barre oblique inverse pour ceux de
+Markdown (et retour à la ligne remplacé par une espace dans une ligne de
+tableau). Montants et dates suivent la langue du document, comme le PDF légal :
+`1 234,56` et `15/09/2026` (fr), `1,234.56` et `2026-09-15` (en), `1.234,56`
+et `15-09-2026` (nl) ; les montants sont imprimés sans symbole, la devise est
+`{{ facture.devise }}`.
+
+=== ODT et DOCX
+
+* Un traitement de texte coupe volontiers un champ en plusieurs fragments de
+  mise en forme : le modèle est *normalisé* avant la fusion (fragments d'une
+  même balise réunis dans le premier, entités décodées, guillemets
+  typographiques redressés).
+* *Ligne de tableau répétée* : une ligne qui ouvre `{% for ligne in lignes %}`
+  dans une cellule et le ferme (`{% endfor %}`) dans une autre cellule, ou dans
+  une ligne suivante, est répétée pour chaque ligne de la facture. De même, un
+  `{% if %}` sans `else` ouvert et fermé dans des cellules différentes rend ces
+  lignes conditionnelles (acomptes déduits). Ouvert et fermé dans la même
+  cellule, le bloc reste dans le texte de la cellule.
+* Un paragraphe du corps qui ne contient que des balises de bloc
+  (`{% if facture.notes %}` seul sur sa ligne) disparaît à la fusion.
+* ODT : `content.xml` et `styles.xml` (en-têtes et pieds de page) ; DOCX :
+  `word/document.xml`, `word/header*.xml`, `word/footer*.xml`.
+
+=== Mentions obligatoires
+
+Un modèle doit imprimer le numéro, la date, le nom et l'adresse du vendeur et
+du client, la boucle des lignes (désignation, quantité, prix unitaire hors
+taxe, montant hors taxe), le taux et le montant de la TVA, les totaux hors taxe
+et TTC, et les *mentions légales* calculées par le cœur. Le bloc
+`{{ mentions }}` (ou une boucle qui imprime `mention.texte`) couvre à lui seul
+les mentions légales : SIREN et numéros de TVA du vendeur et de l'acheteur,
+dates d'émission, de livraison et d'échéance, pénalités de retard, indemnité
+forfaitaire de recouvrement, escompte, exonération ou autoliquidation de la
+TVA, facture d'origine d'un avoir, validité d'un devis.
+
+== Vocabulaire de fusion
+
+=== `facture` — Le document
+
+[cols="2,5",options="header"]
+|===
+|Champ |Contenu
+
+|`{{ facture.numero }}` |Numéro du document (vide pour un brouillon)
+|`{{ facture.type }}` |Libellé du type : Facture, Devis, Avoir, Facture d'acompte
+|`{{ facture.nature }}` |Code du type : invoice, quote, credit_note, deposit_invoice
+|`{{ facture.code_type }}` |Code UNTDID 1001 (380, 381, 386)
+|`{{ facture.date }}` |Date d'émission
+|`{{ facture.date_livraison }}` |Date de livraison ou d'exécution
+|`{{ facture.echeance }}` |Date d'échéance
+|`{{ facture.validite }}` |Fin de validité d'un devis
+|`{{ facture.devise }}` |Code de la devise (EUR)
+|`{{ facture.reference_acheteur }}` |Référence de l'acheteur
+|`{{ facture.reference_commande }}` |Référence de la commande
+|`{{ facture.reference_paiement }}` |Référence du paiement (communication structurée, sinon numéro)
+|`{{ facture.conditions_paiement }}` |Conditions de paiement (à réception, à N jours)
+|`{{ facture.categorie_operation }}` |Catégorie de l'opération (biens, services)
+|`{{ facture.remise_globale }}` |Remise globale (taux ou montant)
+|`{{ facture.notes }}` |Notes du document
+|`{{ facture.origine }}` |Document d'origine (« issu du devis … »)
+|`{{ facture.facture_origine }}` |Numéro de la facture corrigée par un avoir
+|`{{ facture.facture_origine_date }}` |Date de la facture corrigée
+|`{{ facture.langue }}` |Langue du document (fr, en, nl)
+|`{{ facture.brouillon }}` |Vrai pour un brouillon ou un aperçu
+|`{{ facture.empreinte }}` |Empreinte SHA-256 enregistrée à l'émission
+|===
+
+=== `vendeur` — Le vendeur (votre entreprise)
+
+[cols="2,5",options="header"]
+|===
+|Champ |Contenu
+
+|`{{ vendeur.nom }}` |Nom ou raison sociale
+|`{{ vendeur.code }}` |Code de la fiche (client)
+|`{{ vendeur.forme_juridique }}` |Forme juridique
+|`{{ vendeur.capital }}` |Capital social
+|`{{ vendeur.rcs }}` |Immatriculation (RCS)
+|`{{ vendeur.siren }}` |SIREN
+|`{{ vendeur.siret }}` |SIRET
+|`{{ vendeur.tva }}` |Numéro de TVA intracommunautaire
+|`{{ vendeur.adresse }}` |Adresse complète, une ligne par ligne
+|`{{ vendeur.adresse_ligne1 }}` |Première ligne d'adresse
+|`{{ vendeur.adresse_ligne2 }}` |Deuxième ligne d'adresse
+|`{{ vendeur.code_postal }}` |Code postal
+|`{{ vendeur.ville }}` |Ville
+|`{{ vendeur.pays }}` |Code du pays (FR, BE)
+|`{{ vendeur.courriel }}` |Adresse électronique
+|`{{ vendeur.telephone }}` |Téléphone
+|===
+
+=== `client` — Le client
+
+[cols="2,5",options="header"]
+|===
+|Champ |Contenu
+
+|`{{ client.nom }}` |Nom ou raison sociale
+|`{{ client.code }}` |Code de la fiche (client)
+|`{{ client.forme_juridique }}` |Forme juridique
+|`{{ client.capital }}` |Capital social
+|`{{ client.rcs }}` |Immatriculation (RCS)
+|`{{ client.siren }}` |SIREN
+|`{{ client.siret }}` |SIRET
+|`{{ client.tva }}` |Numéro de TVA intracommunautaire
+|`{{ client.adresse }}` |Adresse complète, une ligne par ligne
+|`{{ client.adresse_ligne1 }}` |Première ligne d'adresse
+|`{{ client.adresse_ligne2 }}` |Deuxième ligne d'adresse
+|`{{ client.code_postal }}` |Code postal
+|`{{ client.ville }}` |Ville
+|`{{ client.pays }}` |Code du pays (FR, BE)
+|`{{ client.courriel }}` |Adresse électronique
+|`{{ client.telephone }}` |Téléphone
+|`{{ client.adresse_livraison }}` |Adresse de livraison
+|`{{ client.professionnel }}` |Vrai pour un client professionnel ou public
+|===
+
+=== `lignes` — Les lignes (liste)
+
+Liste : `{% for ligne in lignes %}…{% endfor %}`.
+
+[cols="2,5",options="header"]
+|===
+|Champ |Contenu
+
+|`{{ ligne.numero }}` |Rang de la ligne
+|`{{ ligne.nature }}` |Nature : item, free, note, title, subtotal
+|`{{ ligne.designation }}` |Désignation
+|`{{ ligne.quantite }}` |Quantité
+|`{{ ligne.unite }}` |Unité
+|`{{ ligne.prix_unitaire }}` |Prix unitaire hors taxe
+|`{{ ligne.remise }}` |Remise (taux ou montant)
+|`{{ ligne.taux_tva }}` |Taux de TVA
+|`{{ ligne.montant_ht }}` |Montant hors taxe
+|`{{ ligne.chiffree }}` |Vrai pour une ligne chiffrée (article, désignation libre)
+|`{{ ligne.titre }}` |Vrai pour un intertitre
+|`{{ ligne.note }}` |Vrai pour une ligne de texte
+|`{{ ligne.sous_total }}` |Vrai pour un sous-total
+|===
+
+=== `tva` — La ventilation de la TVA par taux (liste)
+
+Liste : `{% for groupe in tva %}…{% endfor %}`.
+
+[cols="2,5",options="header"]
+|===
+|Champ |Contenu
+
+|`{{ groupe.taux }}` |Taux
+|`{{ groupe.base }}` |Base hors taxe
+|`{{ groupe.montant }}` |Montant de TVA
+|`{{ groupe.categorie }}` |Catégorie (S, Z, E, AE, K, G, O)
+|`{{ groupe.motif }}` |Motif d'exonération
+|===
+
+=== `totaux` — Les totaux
+
+[cols="2,5",options="header"]
+|===
+|Champ |Contenu
+
+|`{{ totaux.lignes_ht }}` |Total des lignes hors taxe
+|`{{ totaux.remise }}` |Remises
+|`{{ totaux.ht }}` |Total hors taxe
+|`{{ totaux.tva }}` |Total de la TVA
+|`{{ totaux.ttc }}` |Total toutes taxes comprises
+|`{{ totaux.acompte }}` |Acomptes déduits
+|`{{ totaux.net_a_payer }}` |Net à payer
+|===
+
+=== `reglement` — Le règlement
+
+[cols="2,5",options="header"]
+|===
+|Champ |Contenu
+
+|`{{ reglement.iban }}` |IBAN du vendeur
+|`{{ reglement.bic }}` |BIC du vendeur
+|`{{ reglement.reference }}` |Référence à rappeler au paiement
+|`{{ reglement.titulaire }}` |Titulaire du compte
+|`{{ reglement.echeance }}` |Date d'échéance
+|===
+
+=== `mentions` — Les mentions légales (liste ; {{ mentions }} les imprime toutes)
+
+Liste : `{% for mention in mentions %}…{% endfor %}`.
+
+[cols="2,5",options="header"]
+|===
+|Champ |Contenu
+
+|`{{ mention.code }}` |Code stable de la mention
+|`{{ mention.texte }}` |Texte de la mention dans la langue du document
+|===
+
+
+== Commandes
+
+[source,sh]
+----
+export CRYSTAL_CACHE_DIR=$TMPDIR/cc-modeles SKIP_MARTEN_CLI_PRECOMPILATION=1
+createdb -h /tmp partiduo_test_modeles
+DATABASE_URL='postgres:///partiduo_test_modeles?host=/tmp' crystal spec --order random --no-debug
+crystal tool format src/ spec/ ui/ scripts/ config/ manage.cr
+bin/ameba
+crystal run scripts/starters.cr   # réécrit starters/ (modèles de départ)
+----
+
+La base de test est vidée et reconstruite par les migrations à chaque passage
+(son nom doit contenir « test »). Les specs de conversion réelle sont en
+attente quand l'outil manque (et celle de LibreOffice quand `soffice` ne rend
+pas la main en 20 s) ; la chaîne de conversion est couverte par des
+convertisseurs de substitution (`spec/support/bin/`).
+
+=== Instance de démonstration
+
+[source,sh]
+----
+createdb -h /tmp partiduo_demo_modeles
+crystal run scripts/demo.cr -- --port=8000            # --converters=auto : outils PDF du PATH
+----
+
+La base `partiduo_demo_modeles` (`DATABASE_URL`, nom contenant « demo ») est
+vidée puis reconstruite ; le script crée le dossier *Atelier Brunet SARL*, un
+administrateur de démonstration (identifiants affichés au démarrage et écrits
+en tête de `scripts/demo.cr`), une facture, un devis et un avoir émis, une
+facture en brouillon, les modèles de départ en français (ODT par défaut) et la
+facture en anglais et en néerlandais, puis sert l'instance sur
+`http://127.0.0.1:8000/` (écran : `/ext/MODELES/`). Ctrl-C, ou la création du
+fichier d'arrêt affiché au démarrage, arrête le serveur.
+
+== Organisation
+
+[source]
+----
+src/
+├── partiduo-modeles.cr         # point d'entrée du shard
+├── partiduo-modeles/cli.cr     # migrations : require "partiduo-modeles/cli"
+└── modeles/                    # métier (application Marten « modeles »)
+    ├── app.cr, manifest.cr     # code MODELES, permissions, menu
+    ├── config.cr               # types, langues, formats
+    ├── fusion/                 # moteur : vocabulaire, contexte, analyse, échappement, rendu
+    ├── office/                 # archives ODT et DOCX : ZIP, normalisation, fusion
+    ├── starters/               # modèles de départ (4 formats)
+    ├── services/               # fichiers, convertisseurs, document fictif, règles (interne)
+    ├── models/, migrations/    # tables modeles_*
+    ├── api/                    # contrat public Modeles::Api
+    └── locales/                # fr, en, nl
+ui/bulma/                       # écrans sous /ext/MODELES/ (Modeles::Api et Partiduo::Api seulement)
+starters/                       # modèles de départ générés (scripts/starters.cr)
+scripts/demo.cr                 # instance de démonstration
+doc/ETAT.adoc                   # décisions D-MOD-…, blocages B-MOD-…
+----
+
+== Licence
+
+GNU Affero General Public License, version 3 ou ultérieure
+(`AGPL-3.0-or-later`), comme Partiduo : voir link:LICENSE[].

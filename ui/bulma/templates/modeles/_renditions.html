@@ -1,0 +1,11 @@
+{# SPDX-License-Identifier: AGPL-3.0-or-later. Rendus conservés (variable renditions ; rendered : identifiant du rendu à signaler) : document, modèle et version, fichier au format du modèle, PDF, empreintes SHA-256. #}<div class="pd-scroll"><table class="table is-fullwidth pd-mod-table" data-modeles-renditions>
+  <caption class="is-sr-only">{% translate "modeles_ui.renditions.title" %}</caption>
+  <thead><tr><th scope="col">{% translate "modeles_ui.renditions.at" %}</th><th scope="col">{% translate "modeles_ui.documents.number" %}</th><th scope="col">{% translate "modeles_ui.renditions.template" %}</th><th scope="col">{% translate "modeles_ui.renditions.files" %}</th><th scope="col">SHA-256</th></tr></thead>
+  <tbody>{% for item in renditions %}<tr data-modeles-rendition="{{ item.id }}"{% if item.id == rendered %} class="pd-mod-new" aria-current="true"{% endif %}>
+    <td>{{ item.rendered_at }}</td>
+    <td><a href="{{ item.document_url }}">{{ item.document }}</a> <span class="is-size-7 pd-muted">{{ item.kind }}</span></td>
+    <td><a href="{{ item.template_url }}">{{ item.template }}</a> <span class="pd-mono is-size-7">{{ item.version }}</span></td>
+    <td><div class="buttons pd-mod-row-actions"><a class="button is-small pd-touch" href="{{ item.file_url }}">{% include "ui/_icon.html" with name="download" %}<span>{{ item.format }}</span></a>{% if item.pdf_url %}<a class="button is-small pd-touch" href="{{ item.pdf_url }}" target="_blank" rel="noopener">{% include "ui/_icon.html" with name="printer" %}<span>PDF</span></a>{% endif %}</div>{% if item.pdf_error %}<p class="is-size-7 has-text-warning-dark">{{ item.pdf_error }}</p>{% endif %}</td>
+    <td class="pd-mono is-size-7"><abbr title="{{ item.sha256 }}">{{ item.sha_short }}…</abbr></td>
+  </tr>{% endfor %}</tbody>
+</table></div>

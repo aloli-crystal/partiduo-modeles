@@ -1,0 +1,11 @@
+{# SPDX-License-Identifier: AGPL-3.0-or-later. Historique des rendus conservés (ADR-010 D4) : on sait toujours ce qui a été imprimé ou envoyé, avec quelle version du modèle. #}{% extend "ui/base.html" %}
+{% block title %}{{ title }}{% endblock title %}
+{% block scripts %}<link rel="stylesheet" href="{% asset 'modeles/css/modeles.css' %}">{% endblock scripts %}
+{% block crumbs %}{% include "ui/_crumbs.html" %}{% endblock crumbs %}
+{% block heading %}{{ title }} <span class="pd-ext">MODELES</span>{% endblock heading %}
+{% block content %}
+<section class="pd-panel" aria-labelledby="pd-mod-history-title">
+  <header><h2 id="pd-mod-history-title">{{ title }}</h2></header>
+  {% if renditions %}{% include "modeles/_renditions.html" %}{% else %}<div class="pd-body"><p class="pd-muted">{% translate "modeles_ui.renditions.empty" %}</p></div>{% endif %}
+</section>
+{% endblock content %}
