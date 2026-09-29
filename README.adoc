@@ -58,8 +58,9 @@ dans l'historique. Un *brouillon* est rendu en aperçu marqué « Brouillon —
 sans valeur », téléchargé aussitôt et non conservé.
 
 |PDF (D5)
-|`asciicrystal-pdf` (AsciiDoc, et Markdown converti en AsciiDoc),
-LibreOffice (ODT, DOCX), facultatifs, déclarés par l'instance, lancés sans shell avec un délai.
+|`partiduo-modeles-pdf`, exécutable de ce shard sur asciicrystal-pdf
+(AsciiDoc, et Markdown converti en AsciiDoc), LibreOffice (ODT, DOCX),
+facultatifs, déclarés par l'instance, lancés sans shell avec un délai.
 
 |Modèles de départ (D6)
 |Facture, devis, avoir × AsciiDoc, Markdown, ODT, DOCX × français, anglais,
@@ -105,8 +106,8 @@ modèle est produit, et l'écran le dit (dépôt, fiche du modèle, rendu).
 |Format |Outil |Variable de l'instance
 
 |ODT, DOCX |LibreOffice sans interface : `soffice --headless --convert-to pdf` |`PARTIDUO_MODELES_SOFFICE`
-|AsciiDoc |`asciicrystal-pdf` (mode `secure`, thème embarqué `fr`, sans configuration personnelle) |`PARTIDUO_MODELES_ASCIICRYSTAL_PDF`
-|Markdown |converti en AsciiDoc dans le processus (`kramdown-asciidoc`), puis `asciicrystal-pdf` |`PARTIDUO_MODELES_ASCIICRYSTAL_PDF`
+|AsciiDoc |`partiduo-modeles-pdf` (asciicrystal-pdf ; mode `secure`, thème embarqué `fr`, sans configuration personnelle, fixés dans l'exécutable) |`PARTIDUO_MODELES_PDF`
+|Markdown |`partiduo-modeles-pdf`, qui le convertit d'abord en AsciiDoc (`kramdown-asciidoc`) |`PARTIDUO_MODELES_PDF`
 |===
 
 Les lignes d'un modèle AsciiDoc qui désignent des fichiers du serveur
@@ -114,7 +115,8 @@ Les lignes d'un modèle AsciiDoc qui désignent des fichiers du serveur
 conversion.
 
 * La valeur d'une variable est le chemin de l'outil, ou `auto` pour le
-  chercher dans le `PATH` ; absente ou vide, le PDF du format est désactivé.
+  chercher à côté de l'exécutable du serveur, puis dans le `PATH` ; absente
+  ou vide, le PDF du format est désactivé.
 * `PARTIDUO_MODELES_CONVERT_TIMEOUT` : délai maximal en secondes (60 par
   défaut) ; au-delà, l'outil est tué et l'échec noté sur le rendu.
 * Chaque conversion est lancée sans shell (tableau d'arguments), dans un
@@ -123,13 +125,17 @@ conversion.
   des outils et sur le déploiement (voir B-MOD-003).
 
 Installation : `apt install libreoffice-writer-nogui` (Debian, Ubuntu) ;
-`asciicrystal-pdf` se construit depuis ses sources :
+`partiduo-modeles-pdf` se construit avec ce shard, aux versions de
+`shard.lock` :
 
 [source,sh]
 ----
-git clone https://github.com/aloli-crystal/asciicrystal-pdf.git
-cd asciicrystal-pdf && shards install --without-development && shards build asciicrystal-pdf --release
+shards build partiduo-modeles-pdf --release
 ----
+
+Construisez-le sur la machine qui sert, ou à un chemin identique : ses
+polices (DejaVu) sont lues dans `lib/asciicrystal-pdf/data/fonts` du
+répertoire de construction, chemin fixé à la compilation.
 
 == Écrire un modèle
 
@@ -363,7 +369,7 @@ crystal run scripts/starters.cr   # réécrit starters/ (modèles de départ)
 La base de test est vidée et reconstruite par les migrations à chaque passage
 (son nom doit contenir « test »). Les specs de conversion réelle sont en
 attente quand l'outil manque (et celle de LibreOffice quand `soffice` ne rend
-pas la main en 20 s) ; la CI construit `asciicrystal-pdf` et vérifie donc la
+pas la main en 20 s) ; la CI construit `partiduo-modeles-pdf` et vérifie donc la
 conversion réelle de l'AsciiDoc et du Markdown ; la chaîne de conversion est couverte par des
 convertisseurs de substitution (`spec/support/bin/`).
 

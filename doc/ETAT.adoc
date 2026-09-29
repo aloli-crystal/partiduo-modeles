@@ -23,7 +23,7 @@ partiduo-app) et l'extension les utilise.
   écrans (dont le panneau de la fiche d'un document), conventions. Ordre
   aléatoire : 110 exemples, 0 échec, 1 en attente (29 septembre 2026) :
   la conversion réelle par LibreOffice (B-MOD-005) ; celles d'AsciiDoc et de
-  Markdown par `asciicrystal-pdf` passent.
+  Markdown par `partiduo-modeles-pdf` passent.
 * Instance de démonstration : `scripts/demo.cr` (README).
 
 == Décisions
@@ -129,10 +129,12 @@ boucle de ligne qui ne se ferme pas dans une ligne est refusée au dépôt.
 === D-MOD-011 — Convertisseurs
 
 Déclarés par l'environnement de l'instance (`PARTIDUO_MODELES_SOFFICE`,
-`…_ASCIICRYSTAL_PDF`, `…_CONVERT_TIMEOUT`), `auto` pour le `PATH`. Lancement sans shell
+`PARTIDUO_MODELES_PDF`, `…_CONVERT_TIMEOUT`), `auto` pour les chercher (à côté de
+l'exécutable du serveur, puis dans le `PATH`). Lancement sans shell
 (`Process.new` et tableau d'arguments), répertoire temporaire propre
 (`HOME`, `TMPDIR`, profil LibreOffice), délai puis `SIGKILL`, modes sûrs des
-outils (`asciicrystal-pdf -N -n -T fr -a safe=secure`, D-MOD-017).
+outils (`partiduo-modeles-pdf ENTRÉE SORTIE`, mode `secure` fixé dans
+l'exécutable, D-MOD-017).
 Un échec de conversion n'empêche pas la conservation du fichier au format du
 modèle ; la clé de l'échec est enregistrée sur le rendu et montrée à l'écran.
 
@@ -177,34 +179,50 @@ derniers rendus conservés (fichier au format du modèle, puis PDF s'il
 existe), à télécharger. Sans `modeles.read`, le contrat refuse et
 l'interface n'affiche pas le panneau ; extension inactive : pas d'appel.
 
-== Blocages
+=== D-MOD-017 — `partiduo-modeles-pdf` pour l'AsciiDoc et le Markdown
 
-
-=== D-MOD-017 — `asciicrystal-pdf` pour l'AsciiDoc et le Markdown (29 septembre 2026)
+Révisée le 29 septembre 2026 : l'exécutable `partiduo-modeles-pdf` remplace
+le programme `asciicrystal-pdf` installé à part.
 
 Demande de l'utilisateur : le PDF d'un AsciiDoc est produit par
 `asciicrystal-pdf` (aloli-crystal, sur le shard `pdf` du cœur), et non par
-`asciidoctor-pdf`. Le Markdown est converti en AsciiDoc dans le processus
-par `kramdown-asciidoc` (aloli-crystal), puis suit le même chemin ; `pandoc`
+`asciidoctor-pdf`. Le Markdown est converti en AsciiDoc par
+`kramdown-asciidoc` (aloli-crystal), puis suit le même chemin ; `pandoc`
 n'est plus utilisé.
 
-`asciicrystal-pdf` tourne en *processus séparé* (`PARTIDUO_MODELES_ASCIICRYSTAL_PDF`) :
-l'intégrer comme bibliothèque fait échouer Crystal 1.19.1 au codegen
-(« trying to downcast Hash(String, String)+ … ») dès qu'une sous-classe de
-`Hash` est dans le programme — Marten en a une (`MatchParameters`).
-Reproduction en quelques lignes avec `asciicrystal` seul ; la cause est
-recherchée dans une session à part. Le processus séparé a de toute façon ses
-avantages : délai et arrêt forcé, isolation d'un modèle déposé par
-l'utilisateur.
+La conversion est faite par `partiduo-modeles-pdf`, exécutable de ce shard
+(cible du même nom, `src/partiduo-modeles/pdf.cr`) construit sur la
+bibliothèque `asciicrystal-pdf`, aux versions de `shard.lock` ; variable
+`PARTIDUO_MODELES_PDF` (`auto` : à côté de l'exécutable du serveur, puis
+dans le `PATH`). Il reste en *processus séparé*, par choix de l'utilisateur :
+délai et arrêt forcé (une fibre ne se tue pas), serveur non bloqué pendant
+une conversion, isolation d'un modèle déposé par l'utilisateur. Il ne
+requiert ni le cœur ni Marten. La conversion du Markdown en AsciiDoc s'y fait
+aussi (elle se faisait dans le serveur, hors délai) : `kramdown-asciidoc`
+peut boucler sans fin (B-MOD-007), l'exécutable est alors tué au délai.
 
-Arguments : `-N` (sans configuration personnelle), `-n` (sans ouvrir le PDF),
-`-T fr` (thème embarqué, jamais un fichier désigné par le modèle),
-`-a safe=secure` (ni inclusion, ni lecture d'adresse). Les attributs
-`:pdf-theme:`, `:pdf-themesdir:`, `:pdf-fontsdir:` sont retirés du source.
-Aucune spec ne prouve l'absence d'inclusion par le contenu du PDF : son texte
-est compressé et encodé par la police incorporée ; la garantie repose sur
-les arguments (vérifiés par spec) et sur le mode `secure` d'`asciicrystal`.
-La CI construit `asciicrystal-pdf` depuis sa branche par défaut.
+Le processus séparé était d'abord imposé : la bibliothèque dans le serveur
+faisait échouer le compilateur Crystal (« trying to downcast Hash(String,
+String)+ … ») dès qu'une sous-classe de `Hash` était dans le programme —
+Marten en a une (`MatchParameters`). Cause trouvée (crystal-lang/crystal#17507,
+correctif proposé dans crystal-lang/crystal#17511) et contournée dans
+asciicrystal 2.0.26.23 ; `shard.yml` exige asciicrystal 2.0.26.27.
+
+Réglages fixés dans l'exécutable, jamais passés en arguments : mode `secure`
+(ni inclusion, ni lecture d'adresse), thème embarqué `fr`, sans
+configuration personnelle. Les attributs `:pdf-theme:`, `:pdf-themesdir:`,
+`:pdf-fontsdir:` sont retirés du source. Aucune spec ne prouve l'absence
+d'inclusion par le contenu du PDF : son texte est compressé et encodé par la
+police incorporée ; la garantie repose sur l'exécutable et sur le mode
+`secure` d'`asciicrystal`. Une image hors du répertoire du modèle n'est pas
+incorporée (B-MOD-006 levé ; spec « n'incorpore pas une image du serveur »). Les polices
+(DejaVu) sont lues à un chemin fixé à la compilation
+(`lib/asciicrystal-pdf/data/fonts`) : l'exécutable se construit sur la
+machine qui sert. La CI le construit (`shards build partiduo-modeles-pdf`)
+et vérifie la conversion réelle.
+
+== Blocages
+
 === B-MOD-001 — Le socle n'admet pas ODT ni DOCX en pièce jointe — *levé le 29 septembre 2026*
 
 Le socle admet ODT et DOCX avec contrôle de signature (partiduo-app,
@@ -257,7 +275,31 @@ Les rendus sont rattachés au document par la table de l'extension
 === B-MOD-005 — Conversion réelle par LibreOffice non vérifiée
 
 *Levé en partie le 29 septembre 2026* : AsciiDoc et Markdown passent par
-`asciicrystal-pdf` (D-MOD-017), dont la conversion réelle est vérifiée en
+`partiduo-modeles-pdf` (D-MOD-017), dont la conversion réelle est vérifiée en
 local et en CI. Reste LibreOffice : `soffice` est présent mais ne rend pas la
 main dans le bac à sable (spec en attente après 20 s). À vérifier sur un
 poste où LibreOffice fonctionne.
+
+=== B-MOD-006 — Images hors du répertoire du modèle en mode `secure` — *levé le 29 septembre 2026*
+
+`asciicrystal-pdf` 2.3.24.112 ramène dans le répertoire du document un chemin
+d'image absolu ou en `../` en mode sûr, comme Asciidoctor ; `shard.yml`
+l'exige, et une spec vérifie qu'aucune image n'est alors incorporée.
+Constat d'origine :
+
+En mode `secure`, `asciicrystal-pdf` (2.3.24.111) incorporait au PDF une
+image désignée par un chemin absolu ou par `../`, hors du répertoire de
+conversion (`image::/chemin/logo.png[]`) ; un modèle déposé pouvait ainsi
+faire paraître toute image lisible par le serveur. Déjà vrai avec le
+programme `asciicrystal-pdf` d'avant D-MOD-017 révisée.
+
+=== B-MOD-007 — `kramdown-asciidoc` boucle sans fin sur certains Markdown
+
+Constaté le 29 septembre 2026 : `kramdown-asciidoc` 2.1.1.4 ne rend jamais
+la main sur deux lignes comme `x| A | b |` puis `| N | c |` (une ligne de
+tableau précédée de texte, suivie d'une autre), par exemple un modèle de
+départ Markdown dont les balises `{% if %}` précèdent une ligne de tableau.
+La conversion se faisait dans le serveur : elle l'aurait bloqué. Elle se fait
+désormais dans `partiduo-modeles-pdf`, tué au délai (D-MOD-017 révisée ;
+spec « rend la main quand kramdown-asciidoc boucle »).
+*Demande* : corriger la boucle dans `kramdown-asciidoc`.

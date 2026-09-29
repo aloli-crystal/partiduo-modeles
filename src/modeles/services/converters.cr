@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 require "file_utils"
-require "kramdown-asciidoc/kramdown_asciidoc"
 
 module Modeles
   # Échec d'une conversion en PDF : `key`, clé de traduction
@@ -25,20 +24,20 @@ module Modeles
   # |===
   # |Format |Outil |Variable de l'instance
   #
-  # |AsciiDoc |`asciicrystal-pdf` (mode `secure`, thème embarqué) |`PARTIDUO_MODELES_ASCIICRYSTAL_PDF`
-  # |Markdown |converti en AsciiDoc dans le processus (`kramdown-asciidoc`), puis `asciicrystal-pdf` |`PARTIDUO_MODELES_ASCIICRYSTAL_PDF`
+  # |AsciiDoc |`partiduo-modeles-pdf` (asciicrystal-pdf, mode `secure`, thème embarqué) |`PARTIDUO_MODELES_PDF`
+  # |Markdown |`partiduo-modeles-pdf`, qui le convertit d'abord en AsciiDoc (`kramdown-asciidoc`) |`PARTIDUO_MODELES_PDF`
   # |ODT, DOCX |LibreOffice sans interface (`soffice --headless --convert-to pdf`) |`PARTIDUO_MODELES_SOFFICE`
   # |===
   #
-  # `asciicrystal-pdf` tourne dans son propre processus, et non comme
-  # bibliothèque : il peut ainsi être tué au-delà du délai, et le
-  # compilateur Crystal 1.19.1 échoue quand `asciicrystal` et une sous-classe
-  # de `Hash` (celle de Marten) sont dans le même programme (doc/ETAT.adoc,
-  # D-MOD-017).
+  # `partiduo-modeles-pdf` est l'exécutable de ce shard (cible du même nom) :
+  # il tourne dans son propre processus, conversion du Markdown comprise,
+  # pour pouvoir être tué au-delà du délai, et pour qu'un modèle déposé par
+  # l'utilisateur n'atteigne pas le serveur (D-MOD-017).
   #
-  # Chaque variable donne le chemin de l'outil ; `auto` le cherche dans le
-  # `PATH` ; absente ou vide, le PDF du format est désactivé (et l'écran le
-  # dit). `PARTIDUO_MODELES_CONVERT_TIMEOUT` : délai maximal en secondes
+  # Chaque variable donne le chemin de l'outil ; `auto` le cherche à côté de
+  # l'exécutable du serveur, puis dans le `PATH` ; absente ou vide, le PDF
+  # du format est désactivé (et l'écran le dit).
+  # `PARTIDUO_MODELES_CONVERT_TIMEOUT` : délai maximal en secondes
   # (60 par défaut). L'outil est lancé sans shell (tableau d'arguments),
   # dans un répertoire temporaire propre à la conversion, effacé ensuite ;
   # au-delà du délai, il est tué.
@@ -51,14 +50,9 @@ module Modeles
     VARIABLES = {
       "odt"      => {"PARTIDUO_MODELES_SOFFICE", "soffice"},
       "docx"     => {"PARTIDUO_MODELES_SOFFICE", "soffice"},
-      "asciidoc" => {"PARTIDUO_MODELES_ASCIICRYSTAL_PDF", "asciicrystal-pdf"},
-      "markdown" => {"PARTIDUO_MODELES_ASCIICRYSTAL_PDF", "asciicrystal-pdf"},
+      "asciidoc" => {"PARTIDUO_MODELES_PDF", "partiduo-modeles-pdf"},
+      "markdown" => {"PARTIDUO_MODELES_PDF", "partiduo-modeles-pdf"},
     }
-
-    # Attributs d'un modèle AsciiDoc qui désigneraient des fichiers du
-    # serveur (thème, polices) : leurs lignes sont retirées avant la
-    # conversion.
-    SERVER_PATH_ATTRIBUTES = /^:(pdf-theme|pdf-themesdir|pdf-fontsdir|pdf-theme-dir):[^\n]*\n?/m
 
     # Outils fixés par le code (specs, instance de démonstration) ; ils
     # remplacent la configuration de l'environnement. `nil` : désactivé.
@@ -82,9 +76,19 @@ module Modeles
       return @@overrides[format] if @@overrides.has_key?(format)
       variable, command = VARIABLES[format]? || return
       value = ENV[variable]?.try(&.strip).presence || return
-      path = value == "auto" ? Process.find_executable(command) : value
+      path = value == "auto" ? find(command) : value
       return unless path && File.file?(path) && File::Info.executable?(path)
       Tool.new(command, path, timeout)
+    end
+
+    # `auto` : à côté de l'exécutable du serveur (où la distribution dépose
+    # `partiduo-modeles-pdf`), sinon dans le `PATH`.
+    def self.find(command : String) : String?
+      if (server = Process.executable_path)
+        sibling = File.join(File.dirname(server), command)
+        return sibling if File.file?(sibling) && File::Info.executable?(sibling)
+      end
+      Process.find_executable(command)
     end
 
     def self.available?(format : String) : Bool
@@ -98,10 +102,9 @@ module Modeles
       directory = File.join(Dir.tempdir, "partiduo-modeles-#{Random::Secure.hex(8)}")
       Dir.mkdir(directory, 0o700)
       begin
-        extension = format == "markdown" ? "adoc" : Config::EXTENSIONS[format]
-        input = File.join(directory, "document.#{extension}")
+        input = File.join(directory, "document.#{Config::EXTENSIONS[format]}")
         output = File.join(directory, "document.pdf")
-        File.write(input, source(format, bytes))
+        File.write(input, bytes)
         run(tool, arguments(format, tool, directory, input, output), directory)
         pdf = File.exists?(output) ? File.open(output, &.getb_to_end) : Bytes.empty
         unless pdf.size > 5 && pdf[0, 5] == "%PDF-".to_slice
@@ -113,28 +116,15 @@ module Modeles
       end
     end
 
-    # Fichier remis à l'outil : le Markdown est converti en AsciiDoc ; un
-    # AsciiDoc perd ses attributs qui désignent des fichiers du serveur.
-    def self.source(format : String, bytes : Bytes) : Bytes
-      case format
-      when "markdown"
-        KramdownAsciidoc.convert(String.new(bytes)).gsub(SERVER_PATH_ATTRIBUTES, "").to_slice
-      when "asciidoc"
-        String.new(bytes).gsub(SERVER_PATH_ATTRIBUTES, "").to_slice
-      else
-        bytes
-      end
-    end
-
     def self.arguments(format : String, tool : Tool, directory : String, input : String, output : String) : Array(String)
       case format
       when "odt", "docx"
         ["--headless", "--norestore", "--nolockcheck", "--nodefault", "--nologo",
          "-env:UserInstallation=file://#{directory}/profil", "--convert-to", "pdf", "--outdir", directory, input]
       else
-        # `-N` : sans configuration personnelle ; `-n` : sans ouvrir le PDF ;
-        # `-T fr` : thème embarqué, jamais un fichier désigné par le modèle.
-        ["-N", "-n", "-T", "fr", "-a", "safe=secure", "-o", output, input]
+        # Mode `secure` et thème embarqué sont fixés dans l'exécutable,
+        # jamais passés par ici (src/partiduo-modeles/pdf.cr).
+        [input, output]
       end
     end
 

@@ -1,14 +1,18 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 require "../spec_helper"
+require "../../src/partiduo-modeles/pdf_source"
 
 private alias S = Modeles::SpecSupport
 private alias Converters = Modeles::Converters
 
-# Outil réel trouvé dans le PATH, sinon la spec est en attente (ADR-010 D5 :
-# aucun convertisseur n'est requis pour les specs).
+# Outil réel : l'exécutable construit dans ce dépôt (`shards build
+# partiduo-modeles-pdf`), sinon celui du PATH ; absent, la spec est en
+# attente (ADR-010 D5 : aucun convertisseur n'est requis pour les specs).
 private def real_tool(format : String, command : String, timeout : Time::Span) : Converters::Tool?
-  Process.find_executable(command).try { |path| Converters::Tool.new(command, path, timeout) }
+  built = File.expand_path(File.join(__DIR__, "..", "..", "bin", command))
+  path = File::Info.executable?(built) ? built : Process.find_executable(command)
+  path.try { |found| Converters::Tool.new(command, found, timeout) }
 end
 
 private def sample_file(format : String) : Bytes
@@ -56,17 +60,16 @@ describe "Conversion en PDF (ADR-010 D5)" do
     ])
     %w[asciidoc markdown].each do |format|
       Converters.arguments(format, tool, "/t", "/t/document.adoc", "/t/document.pdf").should eq(
-        ["-N", "-n", "-T", "fr", "-a", "safe=secure", "-o", "/t/document.pdf", "/t/document.adoc"])
+        ["/t/document.adoc", "/t/document.pdf"])
     end
   end
 
   it "remet à asciicrystal-pdf un AsciiDoc, Markdown compris, sans chemin du serveur" do
-    markdown = String.new(Converters.source("markdown", "# Facture\n\nMontant **dû**.\n".to_slice))
+    markdown = Modeles::PdfSource.asciidoc("/t/document.md", "# Facture\n\nMontant **dû**.\n")
     markdown.should contain("= Facture")
     markdown.should contain("*dû*")
     asciidoc = ":pdf-theme: /etc/theme.yml\n:pdf-fontsdir: /etc\n= Facture\n:pdf-themesdir: /srv\n\nTexte.\n"
-    String.new(Converters.source("asciidoc", asciidoc.to_slice)).should eq("= Facture\n\nTexte.\n")
-    Converters.source("odt", Bytes[1, 2, 3]).should eq(Bytes[1, 2, 3])
+    Modeles::PdfSource.asciidoc("/t/document.adoc", asciidoc).should eq("= Facture\n\nTexte.\n")
   end
 
   it "tue l'outil qui dépasse son délai" do
@@ -83,14 +86,38 @@ describe "Conversion en PDF (ADR-010 D5)" do
     error.detail.should contain("police absente")
   end
 
-  it "convertit AsciiDoc et Markdown avec asciicrystal-pdf (en attente sans l'outil)" do
-    tool = real_tool("asciidoc", "asciicrystal-pdf", 60.seconds) || next pending!("asciicrystal-pdf absent")
+  it "convertit AsciiDoc et Markdown avec partiduo-modeles-pdf (en attente sans l'outil)" do
+    tool = real_tool("asciidoc", "partiduo-modeles-pdf", 60.seconds) || next pending!("partiduo-modeles-pdf non construit")
     %w[asciidoc markdown].each do |format|
       Converters.override(format, tool)
       pdf = Converters.convert(format, sample_file(format))
       String.new(pdf[0, 5]).should eq("%PDF-")
       pdf.size.should be > 1_000
     end
+  end
+
+  it "n'incorpore pas une image du serveur hors du modèle (B-MOD-006, en attente sans l'outil)" do
+    tool = real_tool("asciidoc", "partiduo-modeles-pdf", 60.seconds) || next pending!("partiduo-modeles-pdf non construit")
+    Converters.override("asciidoc", tool)
+    image = File.expand_path(File.join(S::BIN, "..", "image-hors-modele.png"))
+    pdf = String.new(Converters.convert("asciidoc", "= Facture\n\nimage::#{image}[]\n\nimage::../#{File.basename(image)}[]\n".to_slice)).scrub
+    pdf.should start_with("%PDF-")
+    pdf.should_not match(%r{/Subtype\s*/Image})
+  end
+
+  # Tant que kramdown-asciidoc boucle sur ce Markdown, l'exécutable est tué
+  # au délai ; une fois corrigé, la conversion réussit. Dans les deux cas,
+  # l'appel rend la main.
+  it "rend la main quand kramdown-asciidoc boucle sur un Markdown (B-MOD-007, en attente sans l'outil)" do
+    tool = real_tool("markdown", "partiduo-modeles-pdf", 3.seconds) || next pending!("partiduo-modeles-pdf non construit")
+    Converters.override("markdown", tool)
+    started = Time.instant
+    begin
+      Converters.convert("markdown", "x| A | b |\n| N | c |\n".to_slice)
+    rescue error : Modeles::ConversionError
+      error.code.should eq("timeout")
+    end
+    (Time.instant - started).should be < 15.seconds
   end
 
   it "convertit un ODT et un DOCX avec LibreOffice (en attente sans l'outil ou s'il ne rend pas la main)" do

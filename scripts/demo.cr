@@ -23,9 +23,9 @@
 #
 # `DATABASE_URL` (défaut `postgres:///partiduo_demo_modeles?host=/tmp`) doit
 # désigner une base dont le nom contient « demo ». `--converters=auto`
-# cherche `asciicrystal-pdf` (AsciiDoc, Markdown) et `soffice` (ODT, DOCX)
-# dans le `PATH` (sinon : variables `PARTIDUO_MODELES_*` de l'instance, voir
-# le README). Ctrl-C
+# prend `bin/partiduo-modeles-pdf` (AsciiDoc, Markdown ; `shards build
+# partiduo-modeles-pdf`) et `soffice` (ODT, DOCX) du `PATH` (sinon :
+# variables `PARTIDUO_MODELES_*` de l'instance, voir le README). Ctrl-C
 # arrête le serveur, comme la création du fichier `--stop-file` (défaut :
 # `partiduo-modeles-demo.stop` dans le dossier temporaire), utile quand le
 # serveur tourne sans terminal.
@@ -130,9 +130,11 @@ OptionParser.parse do |parser|
   parser.on("--port=PORT", "port local du serveur") { |value| port = value.to_i }
   parser.on("--host=HOST", "adresse d'écoute") { |value| host = value }
   parser.on("--stop-file=PATH", "fichier dont la création arrête le serveur") { |value| stop_file = value }
-  parser.on("--converters=MODE", "auto : convertisseurs PDF cherchés dans le PATH") do |value|
+  parser.on("--converters=MODE", "auto : partiduo-modeles-pdf de bin/ (shards build), soffice du PATH") do |value|
     if value == "auto"
-      %w[PARTIDUO_MODELES_SOFFICE PARTIDUO_MODELES_ASCIICRYSTAL_PDF].each { |name| ENV[name] ||= "auto" }
+      built = File.expand_path(File.join(__DIR__, "..", "bin", "partiduo-modeles-pdf"))
+      ENV["PARTIDUO_MODELES_PDF"] ||= File::Info.executable?(built) ? built : "auto"
+      ENV["PARTIDUO_MODELES_SOFFICE"] ||= "auto"
     end
   end
 end

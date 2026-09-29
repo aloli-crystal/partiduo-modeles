@@ -7,7 +7,8 @@ description: |
   Word (DOCX), remplis avec un document émis de la Facturation par un
   langage de fusion unique (syntaxe des gabarits Marten, bridée), rendus
   dans le même format et en PDF (AsciiDoc et Markdown par asciicrystal-pdf,
-  ODT et DOCX par LibreOffice, s'ils sont installés) ;
+  dans l'exécutable partiduo-modeles-pdf ; ODT et DOCX par LibreOffice,
+  s'il est installé) ;
   chaque rendu est conservé avec son empreinte et la version du modèle.
 
 authors:
@@ -20,6 +21,10 @@ license: AGPL-3.0-or-later
 targets:
   partiduo-modeles-manage:
     main: manage.cr
+  # Convertisseur AsciiDoc -> PDF, lancé en processus séparé par
+  # Modeles::Converters (délai, arrêt forcé, isolation ; D-MOD-017).
+  partiduo-modeles-pdf:
+    main: src/partiduo-modeles/pdf.cr
 
 dependencies:
   # Le cœur : registre, pièces jointes et contrat Partiduo::Api (Facturation).
@@ -27,11 +32,20 @@ dependencies:
     path: ../partiduo-app
   marten:
     path: ../../marten
-  # Markdown -> AsciiDoc, dont le PDF est produit par le programme
-  # asciicrystal-pdf (ADR-010 D5).
+  # Markdown -> AsciiDoc -> PDF, pour l'exécutable partiduo-modeles-pdf
+  # seulement (ADR-010 D5, D-MOD-017) : le serveur ne les requiert pas.
+  # asciicrystal 2.0.26.23 et suivantes compilent avec une sous-classe de
+  # Hash (crystal-lang/crystal#17507) ; asciicrystal-pdf 2.3.24.112 enferme
+  # les chemins d'image dans le répertoire du modèle en mode sûr (B-MOD-006).
   kramdown-asciidoc:
     github: aloli-crystal/kramdown-asciidoc
     version: "~> 2.1.1.4"
+  asciicrystal-pdf:
+    github: aloli-crystal/asciicrystal-pdf
+    version: "~> 2.3.24.112"
+  asciicrystal:
+    github: aloli-crystal/asciicrystal
+    version: "~> 2.0.26.27"
 
 development_dependencies:
   # L'interface qui monte ui/bulma/ : nécessaire aux specs, à manage.cr et à

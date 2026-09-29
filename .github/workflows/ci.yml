@@ -2,8 +2,9 @@
 #
 # CI de partiduo-modeles (extension MODELES, ADR-010) : format, Ameba,
 # specs sur PostgreSQL (cœur, interface et extension, migrations comprises).
-# Les convertisseurs PDF (LibreOffice, asciidoctor-pdf, pandoc) ne sont pas
-# installés : leurs specs sont en attente (ADR-010 D5).
+# L'exécutable partiduo-modeles-pdf (AsciiDoc, Markdown) est construit pour
+# vérifier la conversion réelle ; LibreOffice n'est pas installé, ses specs
+# sont en attente (ADR-010 D5).
 name: CI
 
 on:
@@ -79,12 +80,7 @@ jobs:
         run: scripts/ci-checkout-deps.sh
       - name: Shards
         run: shards install
-      - name: Convertisseur asciicrystal-pdf (PDF des modèles AsciiDoc et Markdown)
-        run: |
-          git clone --depth 1 https://github.com/aloli-crystal/asciicrystal-pdf.git "$RUNNER_TEMP/asciicrystal-pdf"
-          cd "$RUNNER_TEMP/asciicrystal-pdf"
-          shards install --without-development
-          shards build asciicrystal-pdf --no-debug --link-flags=-fuse-ld=lld
-          echo "$RUNNER_TEMP/asciicrystal-pdf/bin" >> "$GITHUB_PATH"
+      - name: Convertisseur partiduo-modeles-pdf (PDF des modèles AsciiDoc et Markdown)
+        run: shards build partiduo-modeles-pdf --no-debug --link-flags=-fuse-ld=lld
       - name: Specs
         run: crystal spec --order random --no-debug --threads 1 --link-flags=-fuse-ld=lld
