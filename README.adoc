@@ -133,9 +133,12 @@ Installation : `apt install libreoffice-writer-nogui` (Debian, Ubuntu) ;
 shards build partiduo-modeles-pdf --release
 ----
 
-Construisez-le sur la machine qui sert, ou à un chemin identique : ses
-polices (DejaVu) sont lues dans `lib/asciicrystal-pdf/data/fonts` du
-répertoire de construction, chemin fixé à la compilation.
+Ses polices (DejaVu) sont cherchées dans `../share/partiduo-modeles-pdf/fonts`
+à côté de l'exécutable, sinon dans `lib/asciicrystal-pdf/data/fonts` du
+répertoire de construction (chemin fixé à la compilation). Sans elles, le
+PDF retombe sur les polices standard (moins de caractères). En production,
+`partiduo-fleet build` (partiduo-app) livre l'exécutable dans `bin/` et les
+polices dans `share/partiduo-modeles-pdf/fonts`.
 
 == Écrire un modèle
 

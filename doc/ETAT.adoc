@@ -216,9 +216,12 @@ d'inclusion par le contenu du PDF : son texte est compressé et encodé par la
 police incorporée ; la garantie repose sur l'exécutable et sur le mode
 `secure` d'`asciicrystal`. Une image hors du répertoire du modèle n'est pas
 incorporée (B-MOD-006 levé ; spec « n'incorpore pas une image du serveur »). Les polices
-(DejaVu) sont lues à un chemin fixé à la compilation
-(`lib/asciicrystal-pdf/data/fonts`) : l'exécutable se construit sur la
-machine qui sert. La CI le construit (`shards build partiduo-modeles-pdf`)
+(DejaVu) sont cherchées dans `../share/partiduo-modeles-pdf/fonts` à côté de
+l'exécutable, sinon au chemin fixé à la compilation
+(`lib/asciicrystal-pdf/data/fonts`) ; sans elles, asciicrystal-pdf retombe
+sans rien dire sur les polices standard du PDF. `partiduo-fleet build`
+(partiduo-app) livre l'exécutable dans `bin/` de l'archive, à côté de
+`partiduo-server`, et les polices dans `share/partiduo-modeles-pdf/fonts`. La CI le construit (`shards build partiduo-modeles-pdf`)
 et vérifie la conversion réelle.
 
 == Blocages
