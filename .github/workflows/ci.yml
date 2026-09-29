@@ -4,7 +4,6 @@
 # specs sur PostgreSQL (cœur, interface et extension, migrations comprises).
 # Les convertisseurs PDF (LibreOffice, asciidoctor-pdf, pandoc) ne sont pas
 # installés : leurs specs sont en attente (ADR-010 D5).
-# Non exécutée tant que les dépôts ne sont pas publiés (BLOCAGES B-002).
 name: CI
 
 on:
