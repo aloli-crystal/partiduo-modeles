@@ -50,9 +50,11 @@ activation ; les documents déjà rendus gardent la leur.
 |Un modèle par défaut par type de document (facture, devis, avoir) et langue.
 
 |Rendu (D4)
-|Depuis un devis, une facture, une facture d'acompte ou un avoir *émis* :
-fichier au format du modèle et PDF, conservés (empreintes SHA-256, version du
-modèle), historique. Un *brouillon* est rendu en aperçu marqué « Brouillon —
+|Depuis la fiche d'un devis, d'une facture, d'une facture d'acompte ou d'un
+avoir *émis* (bouton « Rendre avec un modèle » du panneau de l'extension) :
+fichier au format du modèle et PDF, conservés en pièces jointes du socle
+(empreintes SHA-256, version du modèle), listés sur la fiche du document et
+dans l'historique. Un *brouillon* est rendu en aperçu marqué « Brouillon —
 sans valeur », téléchargé aussitôt et non conservé.
 
 |PDF (D5)
@@ -389,6 +391,7 @@ src/
     ├── api/                    # contrat public Modeles::Api
     └── locales/                # fr, en, nl
 ui/bulma/                       # écrans sous /ext/MODELES/ (Modeles::Api et Partiduo::Api seulement)
+ui/bulma/document_links.cr      # panneau sur la fiche d'un document (PartiduoUi::Extensions.document_links)
 starters/                       # modèles de départ générés (scripts/starters.cr)
 scripts/demo.cr                 # instance de démonstration
 doc/ETAT.adoc                   # décisions D-MOD-…, blocages B-MOD-…

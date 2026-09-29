@@ -5,8 +5,10 @@
 
 Extension `MODELES` (ADR-010, modèles de factures multiformats). Ce document
 consigne les décisions prises pendant la réalisation (`D-MOD-…`) et les
-blocages qui dépendent d'un autre dépôt (`B-MOD-…`). Aucun autre dépôt n'a
-été modifié.
+blocages qui dépendent d'un autre dépôt (`B-MOD-…`). État au 29 septembre
+2026 : les points d'accroche demandés (B-MOD-001, B-MOD-002, B-MOD-004) ont
+été ajoutés à `partiduo-app` et `partiduo-ui-bulma` (DECISIONS D-HOOK-… de
+partiduo-app) et l'extension les utilise.
 
 == État
 
@@ -17,8 +19,9 @@ blocages qui dépendent d'un autre dépôt (`B-MOD-…`). Aucun autre dépôt n'
   `ui/bulma/` en français, anglais et néerlandais.
 * Specs : moteur, échappement, ODT et DOCX (vrais fichiers construits dans
   les specs, champs coupés compris), normalisation, contrôle, rendu,
-  conservation, convertisseurs (outils de substitution), droits, écrans,
-  conventions. Ordre aléatoire. Les conversions réelles sont en attente si
+  conservation par le socle, convertisseurs (outils de substitution), droits,
+  écrans (dont le panneau de la fiche d'un document), conventions. Ordre
+  aléatoire : 110 exemples, 0 échec, 3 en attente (29 septembre 2026). Les conversions réelles sont en attente si
   l'outil manque (B-MOD-005).
 * Instance de démonstration : `scripts/demo.cr` (README).
 
@@ -65,14 +68,18 @@ fichiers sont écrits et lus par `Actor.system`. Rendre un document n'exige
 donc pas `core.attachment.write` (contrairement à DOCUMENT, D-DOC-004) :
 ADR-010 D7 ne demande que `modeles.read`.
 
-=== D-MOD-005 — Stockage mixte
+=== D-MOD-005 — Tous les fichiers par le socle des pièces jointes
 
-PDF, AsciiDoc et Markdown sont des pièces jointes du socle (texte sous le type
-admis `text/plain`, le type réel est gardé dans `modeles_stored_file`) ; ODT
-et DOCX, que le socle n'admet pas, sont écrits dans le stockage de l'instance
-sous `modeles/AAAA/MM/<uuid>.<ext>` avec la même garantie (empreinte SHA-256
-vérifiée à chaque lecture, fichier effacé si la transaction est annulée).
-Voir B-MOD-001.
+Révisée le 29 septembre 2026 (B-MOD-001 levé). Modèles déposés, rendus et PDF
+sont des pièces jointes du socle : ODT et DOCX sous leur type (signature de
+l'archive contrôlée par le socle), PDF, AsciiDoc et Markdown sous le type
+admis `text/plain` (le type réel est gardé dans `modeles_stored_file`).
+L'empreinte SHA-256 est vérifiée à chaque lecture. L'ancien stockage à part
+(`modeles/AAAA/MM/<uuid>.<ext>`, colonne `storage_name`) est retiré, sans
+reprise : le dépôt n'avait pas de données de production. Un dépôt que le
+socle refuse (archive ODT dont `mimetype` n'est pas la première entrée non
+compressée, DOCX sans ses parties, taille) est refusé avec l'erreur du socle
+sous `content`, sans rien créer.
 
 === D-MOD-006 — Présentation alignée sur le PDF légal
 
@@ -154,13 +161,31 @@ dossier est à jour et que chaque modèle passe le contrôle de son type.
 === D-MOD-015 — « Rendre avec un modèle »
 
 Écran de l'extension `/ext/MODELES/documents/<id>` (lien vers la fiche du
-document de la Facturation), atteint depuis la liste des devis, factures et
-avoirs de l'extension (voir B-MOD-002). Un modèle d'une autre langue peut être
-choisi ; montants et dates restent dans la langue du document.
+document de la Facturation), atteint depuis le panneau de l'extension sur la
+fiche du document (D-MOD-016). La liste des devis, factures et avoirs de
+l'extension (`/ext/MODELES/documents`) reste servie (fil d'Ariane de
+l'écran), mais la page des modèles ne l'annonce plus : ce n'est plus le seul
+accès. Un modèle d'une autre langue peut être choisi ; montants et dates
+restent dans la langue du document.
+
+=== D-MOD-016 — Panneau sur la fiche d'un document
+
+`ui/bulma/document_links.cr` déclare `PartiduoUi::Extensions.document_links
+"MODELES"` : sur la fiche d'un devis, d'une facture, d'une facture d'acompte
+ou d'un avoir, bouton « Rendre avec un modèle » ; pour tout document, les dix
+derniers rendus conservés (fichier au format du modèle, puis PDF s'il
+existe), à télécharger. Sans `modeles.read`, le contrat refuse et
+l'interface n'affiche pas le panneau ; extension inactive : pas d'appel.
 
 == Blocages
 
-=== B-MOD-001 — Le socle n'admet pas ODT ni DOCX en pièce jointe
+=== B-MOD-001 — Le socle n'admet pas ODT ni DOCX en pièce jointe — *levé le 29 septembre 2026*
+
+Le socle admet ODT et DOCX avec contrôle de signature (partiduo-app,
+DECISIONS D-HOOK-003) ; l'extension y conserve tous ses fichiers (D-MOD-005
+révisée). `text/markdown` et `text/asciidoc` ne sont pas ajoutés : le texte
+reste conservé sous `text/plain`, sans perte (type réel gardé par
+l'extension). Constat d'origine :
 
 `Partiduo::Core::Attachments::TYPES` n'admet ni
 `application/vnd.oasis.opendocument.text` ni
@@ -171,7 +196,11 @@ archive ZIP). *Contournement* : stockage de l'instance géré par l'extension
 `PK\x03\x04`, et `mimetype` pour ODT), et `text/markdown`, `text/asciidoc` ;
 l'extension passera alors tous ses fichiers par le socle.
 
-=== B-MOD-002 — Pas d'action d'extension sur la fiche d'un document
+=== B-MOD-002 — Pas d'action d'extension sur la fiche d'un document — *levé le 29 septembre 2026*
+
+`partiduo-ui-bulma` offre `PartiduoUi::Extensions.document_links`
+(DECISIONS D-HOOK-002 de partiduo-app) ; l'extension y déclare « Rendre avec
+un modèle » (D-MOD-016). Constat d'origine :
 
 La fiche d'un document de la Facturation (`partiduo-ui-bulma`,
 `DocumentHandler#actions`) n'offre pas de point d'extension pour ajouter une
@@ -190,7 +219,10 @@ L'extension ne peut pas couper le réseau d'un processus de façon portable
 `PrivateNetwork=yes` du service de conversion, ou `unshare -n`), à prévoir
 dans `partiduo-provision`.
 
-=== B-MOD-004 — Rendus invisibles depuis la Facturation
+=== B-MOD-004 — Rendus invisibles depuis la Facturation — *levé le 29 septembre 2026*
+
+Les rendus conservés du document sont listés dans le panneau de l'extension
+sur sa fiche (D-MOD-016). Constat d'origine :
 
 Les rendus sont rattachés au document par la table de l'extension
 (`modeles_rendition.document_id`) : la Facturation n'a pas de liste de

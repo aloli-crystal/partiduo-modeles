@@ -8,7 +8,6 @@ en:
       show_retired: "Show retired templates"
       hide_retired: "Hide retired templates"
     actions:
-      render: "Render a document"
       history: "Rendering history"
       preview: "Preview"
       preview_pdf: "PDF preview"

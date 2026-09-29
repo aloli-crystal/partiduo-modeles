@@ -3,7 +3,7 @@
 {% block scripts %}<link rel="stylesheet" href="{% asset 'modeles/css/modeles.css' %}">{% endblock scripts %}
 {% block crumbs %}{% include "ui/_crumbs.html" %}{% endblock crumbs %}
 {% block heading %}{{ title }} <span class="pd-ext">MODELES</span>{% endblock heading %}
-{% block actions %}<a class="button is-primary pd-touch" href="{{ documents_url }}">{% include "ui/_icon.html" with name="file-text" %}<span>{% translate "modeles_ui.actions.render" %}</span></a><a class="button pd-touch" href="{{ history_url }}">{% include "ui/_icon.html" with name="clock" %}<span>{% translate "modeles_ui.actions.history" %}</span></a>{% endblock actions %}
+{% block actions %}<a class="button pd-touch" href="{{ history_url }}">{% include "ui/_icon.html" with name="clock" %}<span>{% translate "modeles_ui.actions.history" %}</span></a>{% endblock actions %}
 {% block content %}
 <section class="pd-panel" aria-labelledby="pd-mod-list-title">
   <header><h2 id="pd-mod-list-title">{% translate "modeles_ui.index.templates" %}</h2>{% if show_retired %}<a class="button is-small pd-touch" href="{% url 'modeles:index' %}">{% translate "modeles_ui.index.hide_retired" %}</a>{% else %}<a class="button is-small pd-touch" href="{% url 'modeles:index' %}?retired=1">{% translate "modeles_ui.index.show_retired" %}</a>{% endif %}</header>

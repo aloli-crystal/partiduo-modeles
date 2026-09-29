@@ -8,7 +8,6 @@ fr:
       show_retired: "Afficher les modèles retirés"
       hide_retired: "Masquer les modèles retirés"
     actions:
-      render: "Rendre un document"
       history: "Historique des rendus"
       preview: "Aperçu"
       preview_pdf: "Aperçu PDF"

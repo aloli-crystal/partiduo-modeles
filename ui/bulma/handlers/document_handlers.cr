@@ -5,6 +5,9 @@ module Modeles
     # Devis, factures, factures d'acompte et avoirs de la Facturation.
     RENDERABLE = %w[quote invoice deposit_invoice credit_note]
 
+    # Rendus conservés montrés sur la fiche d'un document (les plus récents).
+    PANEL_RENDITIONS = 10
+
     # `/ext/MODELES/documents` : documents à rendre avec un modèle, cherchés
     # par numéro ; les plus récents d'abord.
     class DocumentsHandler < Handler

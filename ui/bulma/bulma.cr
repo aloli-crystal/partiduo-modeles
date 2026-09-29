@@ -2,8 +2,9 @@
 
 # Interface Bulma de l'extension MODELES (ADR-010, ADR-005 D4) : liste des
 # modèles, dépôt avec rapport de contrôle, aperçu, activation, défaut par
-# type et langue, modèles de départ, « Rendre avec un modèle » depuis un
-# document de la Facturation, historique des rendus. Montée par
+# type et langue, modèles de départ, « Rendre avec un modèle » depuis la
+# fiche d'un document de la Facturation (panneau de l'extension, avec ses
+# rendus conservés), historique des rendus. Montée par
 # `partiduo-ui-bulma` sous `/ext/MODELES/` (ADR-003 D3). La distribution la
 # requiert après l'interface :
 #
@@ -20,6 +21,7 @@ require "../../src/partiduo-modeles"
 
 require "./presenters"
 require "./handlers/**"
+require "./document_links"
 
 module Modeles
   module Ui

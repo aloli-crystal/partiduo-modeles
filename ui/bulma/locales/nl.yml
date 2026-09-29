@@ -8,7 +8,6 @@ nl:
       show_retired: "Ingetrokken sjablonen tonen"
       hide_retired: "Ingetrokken sjablonen verbergen"
     actions:
-      render: "Een document opmaken"
       history: "Historiek van de opmaak"
       preview: "Voorbeeld"
       preview_pdf: "PDF-voorbeeld"

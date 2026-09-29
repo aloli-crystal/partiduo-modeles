@@ -28,7 +28,6 @@ module Modeles
           "locale_labels" => Api::LOCALES.map { |locale| Present.locale(locale) },
           "converters"    => Api.converters(actor).map { |view| converter(view) },
           "vocabulary"    => vocabulary,
-          "documents_url" => Ui.url("documents"),
           "history_url"   => Ui.url("renditions"),
           "max_mb"        => (Api::MAX_BYTES // (1024 * 1024)).to_s,
         }, status: status)

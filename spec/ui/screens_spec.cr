@@ -131,6 +131,40 @@ describe "Écrans de l'extension sous /ext/MODELES/ (ADR-010, ADR-005 D4)" do
     browser.get("/ext/MODELES/renditions").html.should contain(invoice.number.to_s)
   end
 
+  it "ajoute à la fiche du document son panneau : « Rendre avec un modèle » et rendus conservés" do
+    browser = admin
+    S.template(format: "odt")
+    S.fake_converters
+    invoice = S.issue
+    html = browser.get("/invoicing/documents/#{invoice.id}").html
+    panel = html.match(/<aside class="pd-panel pd-ext-panel"[^>]*data-extension="MODELES".*?<\/aside>/m).try(&.[0]) || fail "panneau absent"
+    panel.should contain(%(<h2 id="pd-ext-modeles-title">Modèles de documents</h2>))
+    panel.should contain(%(<a class="button pd-touch" href="/ext/MODELES/documents/#{invoice.id}">))
+    panel.should contain("Rendre avec un modèle")
+    panel.should_not contain("pd-ext-files")
+
+    browser.post("/ext/MODELES/documents/#{invoice.id}/render", {"template_id" => Api.templates(S.actor).first.id.to_s, "pdf" => "1"})
+    rendition = Api.renditions(S.actor, invoice.id).first
+    panel = browser.get("/invoicing/documents/#{invoice.id}").html.match(/<aside class="pd-panel pd-ext-panel"[^>]*data-extension="MODELES".*?<\/aside>/m).try(&.[0]) || fail "panneau absent"
+    panel.should contain(%(href="/ext/MODELES/renditions/#{rendition.id}/file"))
+    panel.should contain(rendition.filename)
+    panel.should contain(%(href="/ext/MODELES/renditions/#{rendition.id}/pdf"))
+    panel.should contain(rendition.pdf_filename.to_s)
+    # L'écran propre n'est plus annoncé par la page de l'extension.
+    browser.get("/ext/MODELES/").html.should_not contain(%(href="/ext/MODELES/documents"))
+  end
+
+  it "n'ajoute pas de panneau sans modeles.read ni quand l'extension est inactive" do
+    S.books
+    invoice = S.issue
+    reader = S.signed_in_with(["invoicing.invoice.read"], "vendeur@example.com")
+    page = reader.get("/invoicing/documents/#{invoice.id}")
+    page.status.should eq(200)
+    page.html.should_not contain(%(data-extension="MODELES"))
+    Partiduo::Api::Modules.deactivate(S::SYSTEM, Modeles::CODE).success?.should be_true
+    PartiduoUi::Accounts.signed_in.get("/invoicing/documents/#{invoice.id}").html.should_not contain(%(data-extension="MODELES"))
+  end
+
   it "rend un brouillon en aperçu téléchargé aussitôt, sans le conserver" do
     browser = admin
     S.template
