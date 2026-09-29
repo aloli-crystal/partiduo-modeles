@@ -6,8 +6,7 @@
 # Intégrité en base :
 #
 # * type de document, langue et format contrôlés ;
-# * un fichier est soit une pièce jointe du socle, soit un fichier du
-#   stockage de l'instance (BLOCAGE B-MOD-001) ;
+# * chaque fichier est une pièce jointe du socle ;
 # * un seul modèle par défaut par type de document et langue, actif et non
 #   retiré ;
 # * numéros de version uniques par modèle ;
@@ -23,7 +22,6 @@ class Migration::Modeles::V0001 < Marten::Migration
   CONSTRAINTS = [
     <<-SQL,
       ALTER TABLE modeles_stored_file
-        ADD CONSTRAINT modeles_stored_file_storage_check CHECK ((attachment_id IS NULL) <> (storage_name IS NULL)),
         ADD CONSTRAINT modeles_stored_file_attachment_fk FOREIGN KEY (attachment_id) REFERENCES core_attachment (id)
       SQL
     <<-SQL,
@@ -57,8 +55,7 @@ class Migration::Modeles::V0001 < Marten::Migration
   def plan
     create_table :modeles_stored_file do
       column :id, :big_int, primary_key: true, auto: true
-      column :attachment_id, :big_int, null: true
-      column :storage_name, :string, max_size: 255, null: true
+      column :attachment_id, :big_int
       column :filename, :string, max_size: 255
       column :content_type, :string, max_size: 128
       column :byte_size, :big_int

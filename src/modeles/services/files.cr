@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 require "digest/sha256"
-require "uuid"
 
 module Modeles
   # Le fichier stocké ne correspond plus à son empreinte.
@@ -13,63 +12,54 @@ module Modeles
     end
   end
 
-  # Conservation des fichiers de l'extension (interne ; ADR-010 D1, D4).
-  #
-  # * PDF, AsciiDoc et Markdown : pièces jointes du socle
-  #   (`Partiduo::Api::Core.store_attachment`), le texte sous le type admis
-  #   `text/plain` ;
-  # * ODT et DOCX, que le socle n'admet pas encore : stockage des fichiers
-  #   de l'instance sous `modeles/AAAA/MM/<uuid>.<ext>`, avec la même
-  #   empreinte SHA-256 vérifiée à la lecture et le même effacement si la
-  #   transaction est annulée (BLOCAGE B-MOD-001).
+  # Le socle des pièces jointes a refusé un fichier (type, signature,
+  # taille) : erreurs du contrat, clés i18n du cœur.
+  class StorageRefused < Exception
+    getter errors : Array(Partiduo::Api::FieldError)
+
+    def initialize(@errors : Array(Partiduo::Api::FieldError))
+      super("pièce jointe refusée : #{@errors.map(&.key).join(", ")}")
+    end
+  end
+
+  # Conservation des fichiers de l'extension (interne ; ADR-010 D1, D4) :
+  # tous sont des pièces jointes du socle (`Partiduo::Api::Core.store_attachment`),
+  # qui contrôle type, signature (ODT, DOCX, PDF) et taille ; AsciiDoc et
+  # Markdown sous le type admis `text/plain`, leur type réel étant gardé
+  # dans `modeles_stored_file`.
   #
   # Les fichiers appartiennent à l'extension : ils sont écrits et lus par
   # l'acteur système, après le contrôle des permissions de l'extension par
   # `Modeles::Api` (D-MOD-004).
   module Files
-    # Type admis par le socle pour un type réel ; `nil` : stockage propre.
+    # Type de la pièce jointe du socle pour chaque type réel.
     CORE_TYPES = {
-      "application/pdf" => "application/pdf",
-      "text/asciidoc"   => "text/plain",
-      "text/markdown"   => "text/plain",
+      "application/pdf"             => "application/pdf",
+      "text/asciidoc"               => "text/plain",
+      "text/markdown"               => "text/plain",
+      Config::CONTENT_TYPES["odt"]  => Config::CONTENT_TYPES["odt"],
+      Config::CONTENT_TYPES["docx"] => Config::CONTENT_TYPES["docx"],
     }
 
     def self.sha256(bytes : Bytes) : String
       Digest::SHA256.hexdigest(bytes)
     end
 
-    # Enregistre un fichier (dans la transaction de l'appelant).
+    # Enregistre un fichier (dans la transaction de l'appelant) ; lève
+    # `StorageRefused` si le socle le refuse.
     def self.store(filename : String, content_type : String, bytes : Bytes) : StoredFile
-      digest = sha256(bytes)
-      if core_type = CORE_TYPES[content_type]?
-        result = Partiduo::Api::Core.store_attachment(Partiduo::Api::Actor.system,
-          Partiduo::Api::Core::AttachmentInput.new(filename, core_type, IO::Memory.new(bytes)))
-        view = result.value? || raise "pièce jointe refusée : #{result.errors.map(&.key).join(", ")}"
-        StoredFile.create!(attachment_id: view.id, filename: view.filename, content_type: content_type,
-          byte_size: bytes.size.to_i64, sha256: digest)
-      else
-        storage = Marten.media_files_storage
-        extension = File.extname(filename).downcase.gsub(/[^.a-z0-9]/, "")
-        name = storage.save("modeles/#{Time.utc.to_s("%Y/%m")}/#{UUID.random}#{extension}", IO::Memory.new(bytes))
-        Marten::DB::Connection.default.observe_transaction_rollback(-> { storage.delete(name) rescue nil; nil })
-        StoredFile.create!(storage_name: name, filename: clean(filename),
-          content_type: content_type, byte_size: bytes.size.to_i64, sha256: digest)
-      end
+      core_type = CORE_TYPES[content_type]? || raise ArgumentError.new("type de fichier inconnu : #{content_type}")
+      result = Partiduo::Api::Core.store_attachment(Partiduo::Api::Actor.system,
+        Partiduo::Api::Core::AttachmentInput.new(filename, core_type, IO::Memory.new(bytes)))
+      view = result.value? || raise StorageRefused.new(result.errors)
+      StoredFile.create!(attachment_id: view.id, filename: view.filename, content_type: content_type,
+        byte_size: bytes.size.to_i64, sha256: sha256(bytes))
     end
 
     # Contenu d'un fichier ; lève `FileCorrupted` si l'empreinte ne
     # correspond plus.
     def self.read(file : StoredFile) : Bytes
-      bytes = if attachment_id = file.attachment_id
-                Partiduo::Api::Core.attachment_content(Partiduo::Api::Actor.system, attachment_id.to_i64)
-              else
-                io = Marten.media_files_storage.open(file.storage_name.to_s)
-                begin
-                  io.getb_to_end
-                ensure
-                  io.close
-                end
-              end
+      bytes = Partiduo::Api::Core.attachment_content(Partiduo::Api::Actor.system, file.attachment_id!.to_i64)
       raise FileCorrupted.new(file.id!.to_i64) unless sha256(bytes) == file.sha256
       bytes
     rescue Partiduo::Api::AttachmentCorrupted

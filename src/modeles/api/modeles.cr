@@ -92,7 +92,13 @@ module Modeles
         template_id = template.id!.to_i64
         number = Templates.latest_number(template_id) + 1
         filename = Files.clean(input.filename).presence || "modele.#{Config::EXTENSIONS[format]}"
-        file = Files.store(filename, Config::CONTENT_TYPES[format], input.content)
+        file = begin
+          Files.store(filename, Config::CONTENT_TYPES[format], input.content)
+        rescue error : StorageRefused
+          # Refus du socle (signature d'une archive ODT ou DOCX, taille) :
+          # erreurs sous `content`, le modèle éventuellement créé est annulé.
+          next Result(TemplateView).failure(error.errors.map { |item| FieldError.new("content", item.key, item.params) })
+        end
         TemplateVersion.create!(template_id: template_id, number: number, file_id: file.id, filename: filename,
           byte_size: input.content.size.to_i64, sha256: file.sha256!, warnings: Templates.warnings_json(report.warnings),
           uploaded_by_id: actor.user_id)

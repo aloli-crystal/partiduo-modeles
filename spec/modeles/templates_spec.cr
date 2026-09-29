@@ -11,7 +11,30 @@ private def upload(content : Bytes, filename = "facture.md", name = "Facture mai
     template_id: template_id))
 end
 
+# Archive ODT réécrite avec `mimetype` en dernier et compressé : lisible,
+# mais refusée par le contrôle de signature du socle des pièces jointes.
+private def misordered_odt : Bytes
+  source = Modeles::Starters.file("invoice", "fr", "odt")
+  parts = Compress::Zip::File.open(IO::Memory.new(source)) do |zip|
+    zip.entries.map { |entry| {entry.filename, entry.open(&.getb_to_end)} }
+  end
+  io = IO::Memory.new
+  Compress::Zip::Writer.open(io) do |writer|
+    parts.sort_by { |(name, _)| name == "mimetype" ? 1 : 0 }.each { |(name, data)| writer.add(name, data) }
+  end
+  io.to_slice
+end
+
 describe "Dépôt, contrôle et versions des modèles (ADR-010 D3)" do
+  it "refuse, sans rien créer, un ODT dont l'archive n'a pas la signature exigée par le socle" do
+    S.books
+    result = upload(misordered_odt, filename: "facture.odt")
+    result.success?.should be_false
+    result.errors.map { |error| {error.field, error.key} }.should eq([{"content", "core.errors.attachment.content_type.mismatch"}])
+    Modeles::Template.all.count.should eq(0)
+    Modeles::StoredFile.all.count.should eq(0)
+  end
+
   it "refuse un modèle incomplet avec la liste de ce qui manque" do
     S.books
     result = upload("# {{ facture.numero }}\n\n{{ client.nom }}".to_slice)
