@@ -41,6 +41,10 @@ shards:
     git: https://github.com/crystal-community/jwt.git
     version: 1.7.2
 
+  kramdown-asciidoc:
+    git: https://github.com/aloli-crystal/kramdown-asciidoc.git
+    version: 2.1.1.4
+
   marten: # Overridden
     path: ../../marten
     version: 0.7.0

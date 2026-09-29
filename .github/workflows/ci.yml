@@ -77,5 +77,12 @@ jobs:
         run: scripts/ci-checkout-deps.sh
       - name: Shards
         run: shards install
+      - name: Convertisseur asciicrystal-pdf (PDF des modèles AsciiDoc et Markdown)
+        run: |
+          git clone --depth 1 https://github.com/aloli-crystal/asciicrystal-pdf.git "$RUNNER_TEMP/asciicrystal-pdf"
+          cd "$RUNNER_TEMP/asciicrystal-pdf"
+          shards install --without-development
+          shards build asciicrystal-pdf --no-debug --link-flags=-fuse-ld=lld
+          echo "$RUNNER_TEMP/asciicrystal-pdf/bin" >> "$GITHUB_PATH"
       - name: Specs
         run: crystal spec --order random --no-debug --threads 1 --link-flags=-fuse-ld=lld

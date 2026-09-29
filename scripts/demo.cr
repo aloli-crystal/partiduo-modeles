@@ -23,8 +23,9 @@
 #
 # `DATABASE_URL` (défaut `postgres:///partiduo_demo_modeles?host=/tmp`) doit
 # désigner une base dont le nom contient « demo ». `--converters=auto`
-# cherche `soffice`, `asciidoctor-pdf` et `pandoc` dans le `PATH` (sinon :
-# variables `PARTIDUO_MODELES_*` de l'instance, voir le README). Ctrl-C
+# cherche `asciicrystal-pdf` (AsciiDoc, Markdown) et `soffice` (ODT, DOCX)
+# dans le `PATH` (sinon : variables `PARTIDUO_MODELES_*` de l'instance, voir
+# le README). Ctrl-C
 # arrête le serveur, comme la création du fichier `--stop-file` (défaut :
 # `partiduo-modeles-demo.stop` dans le dossier temporaire), utile quand le
 # serveur tourne sans terminal.
@@ -131,7 +132,7 @@ OptionParser.parse do |parser|
   parser.on("--stop-file=PATH", "fichier dont la création arrête le serveur") { |value| stop_file = value }
   parser.on("--converters=MODE", "auto : convertisseurs PDF cherchés dans le PATH") do |value|
     if value == "auto"
-      %w[PARTIDUO_MODELES_SOFFICE PARTIDUO_MODELES_ASCIIDOCTOR_PDF PARTIDUO_MODELES_PANDOC].each { |name| ENV[name] ||= "auto" }
+      %w[PARTIDUO_MODELES_SOFFICE PARTIDUO_MODELES_ASCIICRYSTAL_PDF].each { |name| ENV[name] ||= "auto" }
     end
   end
 end

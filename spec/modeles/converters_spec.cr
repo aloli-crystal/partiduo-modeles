@@ -25,17 +25,17 @@ describe "Conversion en PDF (ADR-010 D5)" do
   it "lit la configuration de l'instance : chemin, auto, délai" do
     Converters.reset
     begin
-      ENV["PARTIDUO_MODELES_PANDOC"] = File.join(S::BIN, "fake-convert")
+      ENV["PARTIDUO_MODELES_SOFFICE"] = File.join(S::BIN, "fake-convert")
       ENV["PARTIDUO_MODELES_CONVERT_TIMEOUT"] = "7"
-      tool = Converters.tool("markdown") || raise "outil non lu"
+      tool = Converters.tool("odt") || raise "outil non lu"
       tool.path.should eq(File.join(S::BIN, "fake-convert"))
       tool.timeout.should eq(7.seconds)
-      ENV["PARTIDUO_MODELES_PANDOC"] = "/nulle/part/pandoc"
-      Converters.tool("markdown").should be_nil
-      ENV["PARTIDUO_MODELES_PANDOC"] = "auto"
-      Converters.tool("markdown").try(&.path).should eq(Process.find_executable("pandoc"))
+      ENV["PARTIDUO_MODELES_SOFFICE"] = "/nulle/part/soffice"
+      Converters.tool("docx").should be_nil
+      ENV["PARTIDUO_MODELES_SOFFICE"] = "auto"
+      Converters.tool("odt").try(&.path).should eq(Process.find_executable("soffice"))
     ensure
-      ENV.delete("PARTIDUO_MODELES_PANDOC")
+      ENV.delete("PARTIDUO_MODELES_SOFFICE")
       ENV.delete("PARTIDUO_MODELES_CONVERT_TIMEOUT")
     end
   end
@@ -54,11 +54,19 @@ describe "Conversion en PDF (ADR-010 D5)" do
       "--headless", "--norestore", "--nolockcheck", "--nodefault", "--nologo", "-env:UserInstallation=file:///t/profil",
       "--convert-to", "pdf", "--outdir", "/t", "/t/document.odt",
     ])
-    Converters.arguments("asciidoc", tool, "/t", "/t/document.adoc", "/t/document.pdf").should eq(
-      ["-S", "secure", "-a", "allow-uri-read!", "-o", "/t/document.pdf", "/t/document.adoc"])
-    engine = tool.copy_with(engine: "weasyprint")
-    Converters.arguments("markdown", engine, "/t", "/t/document.md", "/t/document.pdf").should eq(
-      ["--pdf-engine=weasyprint", "--sandbox", "--from", "markdown", "-o", "/t/document.pdf", "/t/document.md"])
+    %w[asciidoc markdown].each do |format|
+      Converters.arguments(format, tool, "/t", "/t/document.adoc", "/t/document.pdf").should eq(
+        ["-N", "-n", "-T", "fr", "-a", "safe=secure", "-o", "/t/document.pdf", "/t/document.adoc"])
+    end
+  end
+
+  it "remet à asciicrystal-pdf un AsciiDoc, Markdown compris, sans chemin du serveur" do
+    markdown = String.new(Converters.source("markdown", "# Facture\n\nMontant **dû**.\n".to_slice))
+    markdown.should contain("= Facture")
+    markdown.should contain("*dû*")
+    asciidoc = ":pdf-theme: /etc/theme.yml\n:pdf-fontsdir: /etc\n= Facture\n:pdf-themesdir: /srv\n\nTexte.\n"
+    String.new(Converters.source("asciidoc", asciidoc.to_slice)).should eq("= Facture\n\nTexte.\n")
+    Converters.source("odt", Bytes[1, 2, 3]).should eq(Bytes[1, 2, 3])
   end
 
   it "tue l'outil qui dépasse son délai" do
@@ -69,26 +77,20 @@ describe "Conversion en PDF (ADR-010 D5)" do
   end
 
   it "signale l'échec de l'outil avec son message" do
-    Converters.override("markdown", S.fake_tool("failing-convert"))
-    error = expect_raises(Modeles::ConversionError) { Converters.convert("markdown", "x".to_slice) }
+    Converters.override("odt", S.fake_tool("failing-convert"))
+    error = expect_raises(Modeles::ConversionError) { Converters.convert("odt", "x".to_slice) }
     error.code.should eq("failed")
     error.detail.should contain("police absente")
   end
 
-  it "convertit un Markdown avec pandoc (en attente sans pandoc ni moteur PDF)" do
-    tool = real_tool("markdown", "pandoc", 60.seconds) || next pending!("pandoc absent")
-    Converters.override("markdown", tool)
-    begin
-      String.new(Converters.convert("markdown", sample_file("markdown"))[0, 5]).should eq("%PDF-")
-    rescue error : Modeles::ConversionError
-      pending!("pandoc sans moteur PDF utilisable : #{error.detail}")
+  it "convertit AsciiDoc et Markdown avec asciicrystal-pdf (en attente sans l'outil)" do
+    tool = real_tool("asciidoc", "asciicrystal-pdf", 60.seconds) || next pending!("asciicrystal-pdf absent")
+    %w[asciidoc markdown].each do |format|
+      Converters.override(format, tool)
+      pdf = Converters.convert(format, sample_file(format))
+      String.new(pdf[0, 5]).should eq("%PDF-")
+      pdf.size.should be > 1_000
     end
-  end
-
-  it "convertit un AsciiDoc avec asciidoctor-pdf (en attente sans l'outil)" do
-    tool = real_tool("asciidoc", "asciidoctor-pdf", 60.seconds) || next pending!("asciidoctor-pdf absent")
-    Converters.override("asciidoc", tool)
-    String.new(Converters.convert("asciidoc", sample_file("asciidoc"))[0, 5]).should eq("%PDF-")
   end
 
   it "convertit un ODT et un DOCX avec LibreOffice (en attente sans l'outil ou s'il ne rend pas la main)" do

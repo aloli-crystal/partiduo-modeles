@@ -6,7 +6,8 @@ description: |
   avoirs déposés en AsciiDoc, Markdown, OpenDocument (ODT) ou Microsoft
   Word (DOCX), remplis avec un document émis de la Facturation par un
   langage de fusion unique (syntaxe des gabarits Marten, bridée), rendus
-  dans le même format et, si le serveur a le convertisseur, en PDF ;
+  dans le même format et en PDF (AsciiDoc et Markdown par asciicrystal-pdf,
+  ODT et DOCX par LibreOffice, s'ils sont installés) ;
   chaque rendu est conservé avec son empreinte et la version du modèle.
 
 authors:
@@ -26,6 +27,11 @@ dependencies:
     path: ../partiduo-app
   marten:
     path: ../../marten
+  # Markdown -> AsciiDoc, dont le PDF est produit par le programme
+  # asciicrystal-pdf (ADR-010 D5).
+  kramdown-asciidoc:
+    github: aloli-crystal/kramdown-asciidoc
+    version: "~> 2.1.1.4"
 
 development_dependencies:
   # L'interface qui monte ui/bulma/ : nécessaire aux specs, à manage.cr et à

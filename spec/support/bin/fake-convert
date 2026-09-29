@@ -1,8 +1,8 @@
 #!/bin/sh
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Convertisseur de substitution des specs : écrit un petit PDF là où l'outil
-# réel l'écrirait (`--outdir` de soffice, `-o` d'asciidoctor-pdf et de
-# pandoc), à partir du fichier d'entrée (dernier argument ou `-o` absent).
+# réel l'écrirait (`--outdir` de soffice, ou `-o`), à partir du fichier
+# d'entrée (dernier argument ou `-o` absent).
 out=""
 outdir=""
 input=""

@@ -4,7 +4,7 @@ ENV["MARTEN_ENV"] = "test"
 # La Facturation seule (dépendance de l'extension).
 ENV["PARTIDUO_MODULES"] ||= "invoicing"
 # Aucun convertisseur déclaré par l'environnement : les specs les fixent.
-%w[PARTIDUO_MODELES_SOFFICE PARTIDUO_MODELES_ASCIIDOCTOR_PDF PARTIDUO_MODELES_PANDOC].each { |name| ENV.delete(name) }
+%w[PARTIDUO_MODELES_SOFFICE].each { |name| ENV.delete(name) }
 
 require "spec"
 

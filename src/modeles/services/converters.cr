@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 require "file_utils"
+require "kramdown-asciidoc/kramdown_asciidoc"
 
 module Modeles
   # Échec d'une conversion en PDF : `key`, clé de traduction
@@ -24,10 +25,16 @@ module Modeles
   # |===
   # |Format |Outil |Variable de l'instance
   #
+  # |AsciiDoc |`asciicrystal-pdf` (mode `secure`, thème embarqué) |`PARTIDUO_MODELES_ASCIICRYSTAL_PDF`
+  # |Markdown |converti en AsciiDoc dans le processus (`kramdown-asciidoc`), puis `asciicrystal-pdf` |`PARTIDUO_MODELES_ASCIICRYSTAL_PDF`
   # |ODT, DOCX |LibreOffice sans interface (`soffice --headless --convert-to pdf`) |`PARTIDUO_MODELES_SOFFICE`
-  # |AsciiDoc |`asciidoctor-pdf` (mode `secure`) |`PARTIDUO_MODELES_ASCIIDOCTOR_PDF`
-  # |Markdown |`pandoc` (`--sandbox`) ; moteur PDF facultatif |`PARTIDUO_MODELES_PANDOC`, `PARTIDUO_MODELES_PANDOC_ENGINE`
   # |===
+  #
+  # `asciicrystal-pdf` tourne dans son propre processus, et non comme
+  # bibliothèque : il peut ainsi être tué au-delà du délai, et le
+  # compilateur Crystal 1.19.1 échoue quand `asciicrystal` et une sous-classe
+  # de `Hash` (celle de Marten) sont dans le même programme (doc/ETAT.adoc,
+  # D-MOD-017).
   #
   # Chaque variable donne le chemin de l'outil ; `auto` le cherche dans le
   # `PATH` ; absente ou vide, le PDF du format est désactivé (et l'écran le
@@ -39,14 +46,19 @@ module Modeles
     DEFAULT_TIMEOUT = 60
 
     # Outil déclaré pour un format.
-    record Tool, name : String, path : String, timeout : Time::Span, engine : String? = nil
+    record Tool, name : String, path : String, timeout : Time::Span
 
     VARIABLES = {
       "odt"      => {"PARTIDUO_MODELES_SOFFICE", "soffice"},
       "docx"     => {"PARTIDUO_MODELES_SOFFICE", "soffice"},
-      "asciidoc" => {"PARTIDUO_MODELES_ASCIIDOCTOR_PDF", "asciidoctor-pdf"},
-      "markdown" => {"PARTIDUO_MODELES_PANDOC", "pandoc"},
+      "asciidoc" => {"PARTIDUO_MODELES_ASCIICRYSTAL_PDF", "asciicrystal-pdf"},
+      "markdown" => {"PARTIDUO_MODELES_ASCIICRYSTAL_PDF", "asciicrystal-pdf"},
     }
+
+    # Attributs d'un modèle AsciiDoc qui désigneraient des fichiers du
+    # serveur (thème, polices) : leurs lignes sont retirées avant la
+    # conversion.
+    SERVER_PATH_ATTRIBUTES = /^:(pdf-theme|pdf-themesdir|pdf-fontsdir|pdf-theme-dir):[^\n]*\n?/m
 
     # Outils fixés par le code (specs, instance de démonstration) ; ils
     # remplacent la configuration de l'environnement. `nil` : désactivé.
@@ -72,8 +84,7 @@ module Modeles
       value = ENV[variable]?.try(&.strip).presence || return
       path = value == "auto" ? Process.find_executable(command) : value
       return unless path && File.file?(path) && File::Info.executable?(path)
-      engine = format == "markdown" ? ENV["PARTIDUO_MODELES_PANDOC_ENGINE"]?.try(&.strip).presence : nil
-      Tool.new(command, path, timeout, engine)
+      Tool.new(command, path, timeout)
     end
 
     def self.available?(format : String) : Bool
@@ -87,9 +98,10 @@ module Modeles
       directory = File.join(Dir.tempdir, "partiduo-modeles-#{Random::Secure.hex(8)}")
       Dir.mkdir(directory, 0o700)
       begin
-        input = File.join(directory, "document.#{Config::EXTENSIONS[format]}")
+        extension = format == "markdown" ? "adoc" : Config::EXTENSIONS[format]
+        input = File.join(directory, "document.#{extension}")
         output = File.join(directory, "document.pdf")
-        File.write(input, bytes)
+        File.write(input, source(format, bytes))
         run(tool, arguments(format, tool, directory, input, output), directory)
         pdf = File.exists?(output) ? File.open(output, &.getb_to_end) : Bytes.empty
         unless pdf.size > 5 && pdf[0, 5] == "%PDF-".to_slice
@@ -101,17 +113,28 @@ module Modeles
       end
     end
 
+    # Fichier remis à l'outil : le Markdown est converti en AsciiDoc ; un
+    # AsciiDoc perd ses attributs qui désignent des fichiers du serveur.
+    def self.source(format : String, bytes : Bytes) : Bytes
+      case format
+      when "markdown"
+        KramdownAsciidoc.convert(String.new(bytes)).gsub(SERVER_PATH_ATTRIBUTES, "").to_slice
+      when "asciidoc"
+        String.new(bytes).gsub(SERVER_PATH_ATTRIBUTES, "").to_slice
+      else
+        bytes
+      end
+    end
+
     def self.arguments(format : String, tool : Tool, directory : String, input : String, output : String) : Array(String)
       case format
       when "odt", "docx"
         ["--headless", "--norestore", "--nolockcheck", "--nodefault", "--nologo",
          "-env:UserInstallation=file://#{directory}/profil", "--convert-to", "pdf", "--outdir", directory, input]
-      when "asciidoc"
-        ["-S", "secure", "-a", "allow-uri-read!", "-o", output, input]
       else
-        args = ["--sandbox", "--from", "markdown", "-o", output, input]
-        tool.engine.try { |engine| args.insert(0, "--pdf-engine=#{engine}") }
-        args
+        # `-N` : sans configuration personnelle ; `-n` : sans ouvrir le PDF ;
+        # `-T fr` : thème embarqué, jamais un fichier désigné par le modèle.
+        ["-N", "-n", "-T", "fr", "-a", "safe=secure", "-o", output, input]
       end
     end
 

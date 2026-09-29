@@ -58,8 +58,8 @@ dans l'historique. Un *brouillon* est rendu en aperçu marqué « Brouillon —
 sans valeur », téléchargé aussitôt et non conservé.
 
 |PDF (D5)
-|LibreOffice (ODT, DOCX), `asciidoctor-pdf` (AsciiDoc), `pandoc` (Markdown),
-facultatifs, déclarés par l'instance, lancés sans shell avec un délai.
+|`asciicrystal-pdf` (AsciiDoc, et Markdown converti en AsciiDoc),
+LibreOffice (ODT, DOCX), facultatifs, déclarés par l'instance, lancés sans shell avec un délai.
 
 |Modèles de départ (D6)
 |Facture, devis, avoir × AsciiDoc, Markdown, ODT, DOCX × français, anglais,
@@ -105,9 +105,13 @@ modèle est produit, et l'écran le dit (dépôt, fiche du modèle, rendu).
 |Format |Outil |Variable de l'instance
 
 |ODT, DOCX |LibreOffice sans interface : `soffice --headless --convert-to pdf` |`PARTIDUO_MODELES_SOFFICE`
-|AsciiDoc |`asciidoctor-pdf` (mode `secure`) |`PARTIDUO_MODELES_ASCIIDOCTOR_PDF`
-|Markdown |`pandoc` (`--sandbox`) et un moteur PDF |`PARTIDUO_MODELES_PANDOC`, `PARTIDUO_MODELES_PANDOC_ENGINE` (par exemple `weasyprint`, `typst`, `xelatex`)
+|AsciiDoc |`asciicrystal-pdf` (mode `secure`, thème embarqué `fr`, sans configuration personnelle) |`PARTIDUO_MODELES_ASCIICRYSTAL_PDF`
+|Markdown |converti en AsciiDoc dans le processus (`kramdown-asciidoc`), puis `asciicrystal-pdf` |`PARTIDUO_MODELES_ASCIICRYSTAL_PDF`
 |===
+
+Les lignes d'un modèle AsciiDoc qui désignent des fichiers du serveur
+(`:pdf-theme:`, `:pdf-themesdir:`, `:pdf-fontsdir:`) sont retirées avant la
+conversion.
 
 * La valeur d'une variable est le chemin de l'outil, ou `auto` pour le
   chercher dans le `PATH` ; absente ou vide, le PDF du format est désactivé.
@@ -118,8 +122,14 @@ modèle est produit, et l'écran le dit (dépôt, fiche du modèle, rendu).
   profil LibreOffice compris). L'absence de réseau repose sur les modes sûrs
   des outils et sur le déploiement (voir B-MOD-003).
 
-Installation sur Debian ou Ubuntu : `apt install libreoffice-writer-nogui
-pandoc` et `gem install asciidoctor-pdf`.
+Installation : `apt install libreoffice-writer-nogui` (Debian, Ubuntu) ;
+`asciicrystal-pdf` se construit depuis ses sources :
+
+[source,sh]
+----
+git clone https://github.com/aloli-crystal/asciicrystal-pdf.git
+cd asciicrystal-pdf && shards install --without-development && shards build asciicrystal-pdf --release
+----
 
 == Écrire un modèle
 
@@ -353,7 +363,8 @@ crystal run scripts/starters.cr   # réécrit starters/ (modèles de départ)
 La base de test est vidée et reconstruite par les migrations à chaque passage
 (son nom doit contenir « test »). Les specs de conversion réelle sont en
 attente quand l'outil manque (et celle de LibreOffice quand `soffice` ne rend
-pas la main en 20 s) ; la chaîne de conversion est couverte par des
+pas la main en 20 s) ; la CI construit `asciicrystal-pdf` et vérifie donc la
+conversion réelle de l'AsciiDoc et du Markdown ; la chaîne de conversion est couverte par des
 convertisseurs de substitution (`spec/support/bin/`).
 
 === Instance de démonstration
