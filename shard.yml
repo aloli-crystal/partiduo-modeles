@@ -39,7 +39,7 @@ dependencies:
   # les chemins d'image dans le répertoire du modèle en mode sûr (B-MOD-006).
   kramdown-asciidoc:
     github: aloli-crystal/kramdown-asciidoc
-    version: "~> 2.1.1.4"
+    version: "~> 2.1.1.5"
   asciicrystal-pdf:
     github: aloli-crystal/asciicrystal-pdf
     version: "~> 2.3.24.112"

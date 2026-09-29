@@ -59,7 +59,7 @@ shards:
 
   kramdown-asciidoc:
     git: https://github.com/aloli-crystal/kramdown-asciidoc.git
-    version: 2.1.1.4
+    version: 2.1.1.5
 
   marten: # Overridden
     path: ../../marten

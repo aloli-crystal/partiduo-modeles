@@ -199,7 +199,8 @@ délai et arrêt forcé (une fibre ne se tue pas), serveur non bloqué pendant
 une conversion, isolation d'un modèle déposé par l'utilisateur. Il ne
 requiert ni le cœur ni Marten. La conversion du Markdown en AsciiDoc s'y fait
 aussi (elle se faisait dans le serveur, hors délai) : `kramdown-asciidoc`
-peut boucler sans fin (B-MOD-007), l'exécutable est alors tué au délai.
+pouvait boucler sans fin (B-MOD-007, corrigé en 2.1.1.5) ; le délai reste la
+protection contre toute conversion qui ne rendrait pas la main.
 
 Le processus séparé était d'abord imposé : la bibliothèque dans le serveur
 faisait échouer le compilateur Crystal (« trying to downcast Hash(String,
@@ -296,7 +297,14 @@ conversion (`image::/chemin/logo.png[]`) ; un modèle déposé pouvait ainsi
 faire paraître toute image lisible par le serveur. Déjà vrai avec le
 programme `asciicrystal-pdf` d'avant D-MOD-017 révisée.
 
-=== B-MOD-007 — `kramdown-asciidoc` boucle sans fin sur certains Markdown
+=== B-MOD-007 — `kramdown-asciidoc` boucle sans fin sur certains Markdown — *levé le 29 septembre 2026*
+
+`kramdown-asciidoc` 2.1.1.5 corrige la boucle : le parseur de paragraphe
+refusait sans la consommer une ligne commençant par `|` qui n'ouvrait pas un
+tableau à ligne de séparation. Une ligne contenant un pipe continue désormais
+le tableau (la balise `{% if %}` devient une cellule, comme avec la gem Ruby).
+`shard.yml` l'exige ; `partiduo-modeles-pdf` reste tué au délai par
+précaution. Constat d'origine :
 
 Constaté le 29 septembre 2026 : `kramdown-asciidoc` 2.1.1.4 ne rend jamais
 la main sur deux lignes comme `x| A | b |` puis `| N | c |` (une ligne de
