@@ -146,7 +146,7 @@ Marten::Server.setup
 puts <<-TEXT
   == Instance de démonstration MODELES : http://#{host}:#{port}/
      Connexion : #{ModelesDemo::EMAIL} / #{ModelesDemo::PASSWORD}
-     Modèles : http://#{host}:#{port}/ext/MODELES/ · facture émise #{number} : « Rendre un document »
+     Modèles : http://#{host}:#{port}/ext/MODELES/ · facture émise #{number} : « Rendre avec un modèle » sur sa fiche (Devis et factures)
      Convertisseurs PDF : #{Modeles::Config::FORMATS.map { |format| "#{format} #{Modeles::Converters.available?(format) ? "oui" : "non"}" }.join(", ")}
      Ctrl-C ou `touch #{stop_file}` pour arrêter.
   TEXT
