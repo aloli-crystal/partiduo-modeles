@@ -84,7 +84,7 @@ module Modeles
     # `auto` : à côté de l'exécutable du serveur (où la distribution dépose
     # `partiduo-modeles-pdf`), sinon dans le `PATH`.
     def self.find(command : String) : String?
-      if (server = Process.executable_path)
+      if server = Process.executable_path
         sibling = File.join(File.dirname(server), command)
         return sibling if File.file?(sibling) && File::Info.executable?(sibling)
       end
